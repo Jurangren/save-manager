@@ -1,0 +1,10 @@
+Id: SaveManager_Playnite_Plugin
+Name: Save Manager
+Author: Playnite User
+Version: 1.0.0
+Module: SaveManager.dll
+Type: GenericPlugin
+Icon: icon.png
+Links:
+    - Name: GitHub
+      Url: https://github.com/playnite/save-manager

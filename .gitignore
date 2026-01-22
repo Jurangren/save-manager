@@ -1,0 +1,30 @@
+## Visual Studio & .NET
+.vs/
+.vscode/
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+*.cache
+*.dll
+*.exe
+
+## Playnite Output
+/*.pext
+
+## Documentation
+doc/
+
+## Temporary Files
+tmp/
+*.log
+Thumbs.db
+.DS_Store
+
+## Python (if any scripts used)
+__pycache__/
+*.pyc
+
+## Backup files
+*.bak
