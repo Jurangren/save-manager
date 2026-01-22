@@ -28,3 +28,9 @@ __pycache__/
 
 ## Backup files
 *.bak
+
+## Script Files
+*.ps1
+
+## manifest files
+*manifest.yaml
