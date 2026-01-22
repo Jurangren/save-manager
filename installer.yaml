@@ -1,0 +1,14 @@
+AddonId: SaveManager_Playnite_Plugin
+Packages:
+  - Version: 1.0.0
+    RequiredApiVersion: 6.0.0
+    ReleaseDate: 2026-01-23
+    PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v1.0.0/SaveManager.pext
+    Changelog:
+      - 首次发布
+      - 支持智能路径识别（自动判断游戏相对路径和系统相对路径）
+      - 支持备份备注编辑和即时UI刷新
+      - 支持配置和备份的导入导出功能
+      - 支持右键菜单快速备份
+      - 自动清理空文件夹
+      - 添加文件/文件夹时默认定位到游戏安装目录
