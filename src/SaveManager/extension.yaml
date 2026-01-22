@@ -1,4 +1,4 @@
-Id: SaveManager_Playnite_Plugin
+Id: SaveManager
 Name: Save Manager
 Author: Jurangren
 Version: 1.0.0
@@ -7,4 +7,4 @@ Type: GenericPlugin
 Icon: icon.png
 Links:
     - Name: GitHub
-      Url: https://github.com/playnite/save-manager
+      Url: https://github.com/Jurangren/save-manager
