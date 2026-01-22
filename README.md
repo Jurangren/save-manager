@@ -1,42 +1,110 @@
-# 🎮 Playnite 存档管理器 (Save Manager)
+# 🎮 Save Manager for Playnite
 
-这是一个专为 Playnite 游戏库设计的**存档管理插件**。它让你能够轻松备份、还原和管理 PC 游戏的存档，再也不用担心存档丢失或损坏！
+**[English]** | [中文](README_CN.md)
 
-## ✨ 核心功能
+A powerful **save backup plugin** designed for Playnite game library. Easily backup, restore, and manage PC game saves - never worry about losing your progress again!
 
-*   **⚡ 智能路径识别**：无需手动选择复杂的路径类型，插件会自动识别并在游戏目录移动后自动适配。
-*   **📦 一键备份**：支持快速备份，并可添加备注（如“通关前”、“Boss战前”）。
-*   **↩️ 安全还原**：随时将存档恢复到之前的状态。
-*   **📂 便携化设计**：备份文件支持随游戏目录移动，只要相对路径一致即可识别。
-*   **📤 导入导出**：支持导入/导出存档路径配置，方便分享或迁移；支持导入外部 ZIP 备份包。
-*   **🧹 自动清理**：删除最后一个备份时，会自动清理残留的空文件夹。
+## ✨ Features
 
-## 📖 使用指南
+- **⚡ Smart Path Detection**: Automatically detects and adapts save paths when game directory moves
+- **📦 One-Click Backup**: Quick backup with optional notes (e.g., "Before Boss Fight", "Chapter 10 Complete")
+- **↩️ Safe Restore**: Restore saves to any previous state with one click
+- **📂 Portable Design**: Backup files can move with game directory when using relative paths
+- **📤 Import/Export**: Import/export save path configurations and external ZIP backups
+- **🌍 Global Config**: Export/import all configurations for cross-machine backup
+- **🧹 Auto Cleanup**: Automatically removes empty folders when deleting the last backup
 
-### 1. 配置存档路径
-1.  选中游戏，右键点击 **“存档管理”** -> **“打开存档管理器”**。
-2.  点击 **“📁 添加文件夹”** 或 **“📄 添加文件”**。
-3.  选择你的游戏存档位置（通常是 `Documents\My Games\GameName` 或游戏安装目录下的 `Save` 文件夹）。
-    *   *提示：插件会自动检测并优化路径，你不需要操心路径设置问题。*
-4.  点击底部的 **“💾 保存路径配置”**。
+## 📸 Screenshots
 
-### 2. 创建备份
-*   **方法 A**：在管理器界面点击 **“📦 创建备份”** 按钮。
-*   **方法 B**：在 Playnite 游戏列表右键 -> **“存档管理”** -> **“快速备份”**（支持输入备注）。
+### Main Interface
+![Main Interface](doc/img/Main_en.png)
 
-### 3. 还原存档
-1.  在管理器界面左侧列表中选中你想恢复的备份。
-2.  点击 **“↩️ 还原”** 按钮。
-3.  确认覆盖即可。
+### Context Menu
+![Context Menu](doc/img/Menu_en.png)
 
-### 4. 高级功能
-*   **修改备注**：备份后想改名？直接在列表点击 **“✏️”** 按钮。
-*   **导入/导出**：使用界面下方的 **“📥/📤”** 按钮可以分享你的配置给朋友。
+## 📖 Quick Start
 
-## 🛠️ 安装方法
-1.  下载最新的 `.pext` 插件文件。
-2.  拖入 Playnite 窗口或通过扩展菜单安装。
-3.  重启 Playnite。
+### 1. Configure Save Paths
+
+1. Right-click a game → **Save Manager** → **Save Management**
+2. Click **"📁 Add Folder"** or **"📄 Add File"**
+3. Select your game save location (usually `Documents\My Games\GameName` or `Save` folder in game directory)
+   - *The plugin automatically detects and optimizes paths*
+
+![Save Path Configuration](doc/img/Main_en.png)
+
+### 2. Create Backup
+
+- **Method A**: Click **"📦 Create Backup"** in the manager interface
+- **Method B**: Right-click game in Playnite → **Save Manager** → **Quick Backup**
+
+### 3. Restore Saves
+
+1. In the manager interface, select a backup from the list
+2. Click **"↩️ Restore"** button
+3. Confirm to restore
+
+Or simply use the context menu:
+- Right-click game → **Save Manager** → **Restore Backup** → Select from up to 9 recent backups
+
+### 4. Advanced Features
+
+- **Edit Notes**: Click **"✏️"** button to edit backup description
+- **Import/Export Config**: Use **"📥/📤"** buttons to share configurations  
+- **Global Backup**: Use **Extensions Menu** → **SaveManager** → **Export/Import Global Config** to backup all game configurations
+
+## 🛠️ Installation
+
+### From Playnite Add-ons Browser (Recommended)
+1. Open Playnite → Press `F9` or go to **Extensions** → **Addons Browser**
+2. Search for **"Save Manager"**
+3. Click **Install**
+4. Restart Playnite
+
+### Manual Installation
+1. Download the latest `.pext` file from [Releases](../../releases)
+2. Drag and drop into Playnite window or install via **Extensions** → **Install from File**
+3. Restart Playnite
+
+## 🌐 Localization
+
+The plugin supports multiple languages:
+- **English** (en_US)
+- **简体中文** (zh_CN)
+
+Language automatically switches based on Playnite settings.
+
+## ⚙️ Settings
+
+Go to **Playnite Settings** → **Extensions** → **Save Manager**:
+
+- **Custom Backup Directory**: Set a custom location for backups (default: plugin data folder)
+- **Auto Backup**: Automatically create backup when game stops
+- **Confirm Before Backup**: Show confirmation dialog before backing up
+- **Max Backup Count**: Maximum backups per game (0 = unlimited)
+
+## 📁 File Structure
+
+```
+%AppData%\Playnite\ExtensionsData\SaveManager\
+├── Configs\          # Game save path configurations
+│   └── {GameId}.json
+└── Backups\          # Save backups (ZIP files)
+    └── {GameId}\
+        └── Backup_YYYYMMDD_HHMMSS.zip
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Report bugs or suggest features in [Issues](../../issues)
+- Submit pull requests
+- Help translate to other languages
+
+## 📄 License
+
+This project is licensed under the MIT License.
 
 ---
+
 *Made with ❤️ for Playnite Gamers*

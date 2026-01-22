@@ -39,9 +39,10 @@
             <TextBlock FontSize="20" FontWeight="Bold">
                 <Run Text="🎮 "/>
                 <Run Text="{Binding GameName, Mode=OneWay}"/>
-                <Run Text=" - 存档管理"/>
+                <Run Text=" - "/>
+                <Run Text="{DynamicResource LOCSaveManagerSubtitle}"/>
             </TextBlock>
-            <TextBlock Text="{Binding GameId, StringFormat='游戏ID: {0}'}" 
+            <TextBlock Text="{Binding GameId, StringFormat='ID: {0}'}" 
                        Opacity="0.6" FontSize="11" Margin="0,4,0,0"/>
         </StackPanel>
         
@@ -63,20 +64,20 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     
-                    <TextBlock Grid.Row="0" Style="{StaticResource HeaderText}" Text="📂 存档路径配置"/>
+                    <TextBlock Grid.Row="0" Style="{StaticResource HeaderText}" Text="{DynamicResource LOCSaveManagerSaveConfigTitle}"/>
                     
                     <!-- 添加按钮 -->
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Command="{Binding AddFolderCommand}" ToolTip="添加存档文件夹">
+                        <Button Command="{Binding AddFolderCommand}" ToolTip="{DynamicResource LOCSaveManagerAddFolderTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📁" Margin="0,0,6,0"/>
-                                <TextBlock Text="添加文件夹"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerAddFolder}"/>
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding AddFileCommand}" ToolTip="添加单个存档文件">
+                        <Button Command="{Binding AddFileCommand}" ToolTip="{DynamicResource LOCSaveManagerAddFileTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📄" Margin="0,0,6,0"/>
-                                <TextBlock Text="添加文件"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerAddFile}"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -110,7 +111,7 @@
                                                 Command="{Binding DataContext.RemovePathCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                 CommandParameter="{Binding}"
                                                 Content="✕" 
-                                                ToolTip="移除"
+                                                ToolTip="{DynamicResource LOCSaveManagerRemoveTooltip}"
                                                 Padding="8,4"
                                                 VerticalAlignment="Center"/>
                                     </Grid>
@@ -123,7 +124,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate>
-                                                        <TextBlock Text="未配置存档路径&#x0a;请点击上方按钮添加存档文件夹或文件" 
+                                                        <TextBlock Text="{DynamicResource LOCSaveManagerNoSavePaths}" 
                                                                    HorizontalAlignment="Center" 
                                                                    VerticalAlignment="Center"
                                                                    TextAlignment="Center"
@@ -139,24 +140,18 @@
                         </ListBox>
                     </Border>
                     
-                    <!-- 保存配置按钮 -->
+                    <!-- 配置按钮 -->
                     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                        <Button Command="{Binding ImportConfigCommand}" Margin="0,0,10,0" ToolTip="导入其他游戏的路径配置">
+                        <Button Command="{Binding ImportConfigCommand}" Margin="0,0,10,0" ToolTip="{DynamicResource LOCSaveManagerImportConfigTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📥" Margin="0,0,6,0"/>
-                                <TextBlock Text="导入配置"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerImportConfig}"/>
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding ExportConfigCommand}" Margin="0,0,10,0" ToolTip="导出当前路径配置">
+                        <Button Command="{Binding ExportConfigCommand}" ToolTip="{DynamicResource LOCSaveManagerExportConfigTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📤" Margin="0,0,6,0"/>
-                                <TextBlock Text="导出配置"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Command="{Binding SaveConfigCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="💾" Margin="0,0,6,0"/>
-                                <TextBlock Text="保存路径配置"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerExportConfig}"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -173,33 +168,24 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     
-                    <TextBlock Grid.Row="0" Style="{StaticResource HeaderText}" Text="💾 备份管理"/>
+                    <TextBlock Grid.Row="0" Style="{StaticResource HeaderText}" Text="{DynamicResource LOCSaveManagerBackupManagementTitle}"/>
                     
-                    <!-- 创建新备份 -->
-                    <Border Grid.Row="1" Background="{DynamicResource ExpanderBackgroundBrush}" 
-                            CornerRadius="4" Padding="10" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="创建新备份" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBox Text="{Binding NewBackupDescription, UpdateSourceTrigger=PropertyChanged}" 
-                                     Height="60" TextWrapping="Wrap" AcceptsReturn="True"
-                                     ToolTip="输入备份备注（可选）"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                                <Button Command="{Binding ImportBackupCommand}" Margin="0,0,10,0" ToolTip="从外部文件导入备份(ZIP)">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📥" Margin="0,0,6,0"/>
-                                        <TextBlock Text="导入"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Command="{Binding CreateBackupCommand}" 
-                                        IsEnabled="{Binding HasSavePaths}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📦" Margin="0,0,6,0"/>
-                                        <TextBlock Text="创建备份"/>
-                                    </StackPanel>
-                                </Button>
+                    <!-- 操作按钮（移到顶部，类似左边的布局） -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Command="{Binding ImportBackupCommand}" ToolTip="{DynamicResource LOCSaveManagerImportBackupTooltip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📥" Margin="0,0,6,0"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerImportBackup}"/>
                             </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        </Button>
+                        <Button Command="{Binding CreateBackupCommand}" 
+                                IsEnabled="{Binding HasSavePaths}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📦" Margin="0,0,6,0"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerCreateBackup}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                     
                     <!-- 备份列表 -->
                     <Border Grid.Row="2" BorderBrush="{DynamicResource NormalBorderBrush}" 
@@ -249,7 +235,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate>
-                                                        <TextBlock Text="暂无备份&#x0a;配置存档路径后创建第一个备份" 
+                                                        <TextBlock Text="{DynamicResource LOCSaveManagerNoBackups}" 
                                                                    HorizontalAlignment="Center" 
                                                                    VerticalAlignment="Center"
                                                                    TextAlignment="Center"
@@ -269,32 +255,32 @@
                     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Command="{Binding EditBackupNoteCommand}" 
                                 IsEnabled="{Binding IsBackupSelected}"
-                                ToolTip="修改选中备份的备注">
+                                ToolTip="{DynamicResource LOCSaveManagerActionNoteTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="✏️" Margin="0,0,6,0"/>
-                                <TextBlock Text="备注"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerActionNote}"/>
                             </StackPanel>
                         </Button>
                         <Button Command="{Binding RestoreBackupCommand}" 
                                 IsEnabled="{Binding IsBackupSelected}"
-                                ToolTip="还原选中的备份">
+                                ToolTip="{DynamicResource LOCSaveManagerActionRestoreTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="↩️" Margin="0,0,6,0"/>
-                                <TextBlock Text="还原"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerActionRestore}"/>
                             </StackPanel>
                         </Button>
                         <Button Command="{Binding DeleteBackupCommand}" 
                                 IsEnabled="{Binding IsBackupSelected}"
-                                ToolTip="删除选中的备份">
+                                ToolTip="{DynamicResource LOCSaveManagerActionDeleteTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="🗑️" Margin="0,0,6,0"/>
-                                <TextBlock Text="删除"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerActionDelete}"/>
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding OpenBackupFolderCommand}" ToolTip="打开备份文件夹">
+                        <Button Command="{Binding OpenBackupFolderCommand}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📂" Margin="0,0,6,0"/>
-                                <TextBlock Text="打开文件夹"/>
+                                <TextBlock Text="{DynamicResource LOCSaveManagerOpenBackupFolder}"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

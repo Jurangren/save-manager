@@ -1,0 +1,128 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- General -->
+    <sys:String x:Key="LOCSaveManager">Save Manager</sys:String>
+    <sys:String x:Key="LOCSaveManagerSubtitle">Save Management</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameId">Game ID: {0}</sys:String>
+
+    <!-- Save Path Config -->
+    <sys:String x:Key="LOCSaveManagerSaveConfigTitle">Save Path Configuration</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFolder">Add Folder</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFolderTooltip">Add save folder</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFile">Add File</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFileTooltip">Add single save file</sys:String>
+    <sys:String x:Key="LOCSaveManagerRemoveTooltip">Remove</sys:String>
+    <sys:String x:Key="LOCSaveManagerNoSavePaths">No save paths configured&#x0a;Please add files or folders using the buttons above</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportConfig">Import Config</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportConfigTooltip">Import path config from other games</sys:String>
+    <sys:String x:Key="LOCSaveManagerExportConfig">Export Config</sys:String>
+    <sys:String x:Key="LOCSaveManagerExportConfigTooltip">Export current path config</sys:String>
+    <sys:String x:Key="LOCSaveManagerSaveConfig">Save Config</sys:String>
+
+    <!-- Backup Management -->
+    <sys:String x:Key="LOCSaveManagerBackupManagementTitle">Backup Management</sys:String>
+    <sys:String x:Key="LOCSaveManagerCreateNewBackup">Create New Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerBackupNotePlaceholder">Enter backup note (optional)</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportBackupTooltip">Import backup from external file (ZIP)</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportBackup">Import</sys:String>
+    <sys:String x:Key="LOCSaveManagerCreateBackup">Create</sys:String>
+    <sys:String x:Key="LOCSaveManagerNoBackups">No backups available&#x0a;Create your first backup after configuring save paths</sys:String>
+    
+    <!-- Backup Actions -->
+    <sys:String x:Key="LOCSaveManagerActionNote">Note</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionNoteTooltip">Edit note for selected backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionRestore">Restore</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionRestoreTooltip">Restore selected backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionDelete">Delete</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionDeleteTooltip">Delete selected backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenBackupFolder">Open Folder</sys:String>
+
+    <!-- Settings View -->
+    <sys:String x:Key="LOCSaveManagerSettingsTitle">Save Manager Settings</sys:String>
+    <sys:String x:Key="LOCSaveManagerCustomBackupPath">Custom Backup Directory:</sys:String>
+    <sys:String x:Key="LOCSaveManagerBrowse">Browse...</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackup">Auto backup when game stops</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfirmBackup">Show confirmation before backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCount">Max backup count:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCountTooltip">Max backups per game, 0 for unlimited</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCountHint">(per game, 0=unlimited)</sys:String>
+    <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
+
+    <!-- Messages & Dialogs (C#) -->
+    <sys:String x:Key="LOCSaveManagerMsgSelectOneGame">Please select only one game for save management.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSelectOneGameRestore">Please select only one game to restore.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuQuickBackup">Quick Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuQuickRestore">Quick Restore (Latest)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuAbout">About Save Manager</sys:String>
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.0
+
+A Playnite plugin for managing game save backups.
+
+Features:
+• Configure save paths (folders and files) for each game
+• Create save backups (ZIP format)
+• Add notes to backups
+• One-click restore to any backup
+
+Usage: Right-click game -> Save Manager -> Save Management</sys:String>
+    <sys:String x:Key="LOCSaveManagerWindowTitle">Save Manager - {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoConfig">Game "{0}" has no save paths configured.&#x0a;&#x0a;Do you want to configure it now?</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleNoConfig">No Save Paths</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmBackup">Are you sure you want to create a backup for "{0}"?</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmBackup">Confirm Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleBackupNote">Backup Note</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleQuickBackup">Quick Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupSuccess">Backup created successfully!&#x0a;&#x0a;Filename: {0}&#x0a;Size: {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoBackups">Game "{0}" has no available backups.</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleNoBackups">No Backups</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmQuickRestore">Are you sure you want to restore to the latest backup?&#x0a;&#x0a;Backup Name: {0}&#x0a;Date: {1}&#x0a;Note: {2}&#x0a;&#x0a;⚠️ This will overwrite your current save files!</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmRestore">Confirm Restore</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRestoreSuccess">Backup restored successfully!</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogSelectFolder">Please select save folder</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogSelectFile">Select file(s) to backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPathExists">This path has already been added.</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogImportConfig">Configuration File (*.json)|*.json</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportConfirm">Imported {0} paths from file.&#x0a;This will overwrite current configuration. Continue?</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmImport">Confirm Import</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">Configuration imported successfully. Please remember to save.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInvalidConfig">Invalid configuration file format.</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogExportConfig">Export Save Path Config</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgExportNoPaths">No paths configured to export.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgExportSuccess">Configuration successfully exported to:&#x0a;{0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogImportBackup">Backup File (*.zip)|*.zip</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportBackupSuccess">Backup imported successfully!&#x0a;Filename: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSaved">Save path configuration saved.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigRequired">Please configure save paths first.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmRestoreNamed">Are you sure you want to restore backup "{0}"?&#x0a;&#x0a;This will overwrite current save files!&#x0a;&#x0a;It is recommended to backup your current saves first.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDelete">Are you sure you want to delete backup "{0}"?&#x0a;&#x0a;This action cannot be undone!</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmDelete">Confirm Delete</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteSuccess">Backup deleted.</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleEditNote">Edit Note</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterNote">Enter new note:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoteSuccess">Note updated successfully.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoBackupsFound">No backups found for this game.</sys:String>
+
+    <!-- Menu Items -->
+    <sys:String x:Key="LOCSaveManagerMenuSection">SaveManager</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuRestoreBackup">Restore Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuViewAllBackups">View All Backups...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuExportGlobalConfig">Export Global Config</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuImportGlobalConfig">Import Global Config</sys:String>
+    
+    <!-- Global Config Import/Export -->
+    <sys:String x:Key="LOCSaveManagerGlobalExportSuccess">Global configuration exported successfully to:&#x0a;{0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportWarning">Warning: This will completely overwrite SaveManager's configuration!
+
+This will import all game save paths and backup configurations.
+
+For cross-machine backup, paths in the configuration may not exist, which could result in:
+• Fake backup entries being displayed
+• Incorrect game save paths
+
+Are you sure you want to continue?</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportTitle">Import Global Config</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;Please restart Playnite for changes to take effect.</sys:String>
+
+</ResourceDictionary>

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using Playnite.SDK;
 using Playnite.SDK.Models;
 using Playnite.SDK.Plugins;
+using SaveManager.Models;
 using SaveManager.Services;
 using SaveManager.ViewModels;
 using SaveManager.Views;
@@ -58,10 +59,12 @@ namespace SaveManager
         /// </summary>
         public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
         {
+            var menuSection = ResourceProvider.GetString("LOCSaveManagerMenuSection");
+            
             yield return new GameMenuItem
             {
-                Description = "存档管理",
-                MenuSection = "存档管理",
+                Description = ResourceProvider.GetString("LOCSaveManagerSubtitle"),
+                MenuSection = menuSection,
                 Icon = "💾",
                 Action = (menuArgs) =>
                 {
@@ -71,15 +74,15 @@ namespace SaveManager
                     }
                     else
                     {
-                        PlayniteApi.Dialogs.ShowMessage("请只选择一个游戏进行存档管理。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                        PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgSelectOneGame"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                 }
             };
 
             yield return new GameMenuItem
             {
-                Description = "快速备份",
-                MenuSection = "存档管理",
+                Description = ResourceProvider.GetString("LOCSaveManagerMenuQuickBackup"),
+                MenuSection = menuSection,
                 Icon = "📦",
                 Action = (menuArgs) =>
                 {
@@ -90,23 +93,85 @@ namespace SaveManager
                 }
             };
 
-            yield return new GameMenuItem
+            // 还原备份 - 二级菜单
+            if (args.Games.Count == 1)
             {
-                Description = "快速还原（最近备份）",
-                MenuSection = "存档管理",
-                Icon = "↩️",
-                Action = (menuArgs) =>
+                var game = args.Games[0];
+                var restoreMenuSection = menuSection + "|" + ResourceProvider.GetString("LOCSaveManagerMenuRestoreBackup");
+                var backups = backupService.GetBackups(game.Id);
+                
+                if (backups.Count == 0)
                 {
-                    if (menuArgs.Games.Count == 1)
+                    // 无备份时显示提示
+                    yield return new GameMenuItem
                     {
-                        QuickRestore(menuArgs.Games[0]);
+                        Description = ResourceProvider.GetString("LOCSaveManagerTitleNoBackups"),
+                        MenuSection = restoreMenuSection,
+                        Icon = "↩️",
+                        Action = null
+                    };
+                }
+                else
+                {
+                    // 显示最多9个备份
+                    var displayCount = Math.Min(backups.Count, 9);
+                    for (int i = 0; i < displayCount; i++)
+                    {
+                        var backup = backups[i];
+                        var displayText = string.IsNullOrEmpty(backup.Description) 
+                            ? backup.Name 
+                            : backup.Description;
+                        var subText = backup.FormattedDate;
+                        
+                        yield return new GameMenuItem
+                        {
+                            Description = $"{displayText}  ({subText})",
+                            MenuSection = restoreMenuSection,
+                            Icon = "📁",
+                            Action = (menuArgs) =>
+                            {
+                                RestoreSpecificBackup(game, backup);
+                            }
+                        };
                     }
-                    else
+                    
+                    // 超过9个时显示"查找所有备份"
+                    if (backups.Count > 9)
                     {
-                        PlayniteApi.Dialogs.ShowMessage("请只选择一个游戏进行还原。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                        yield return new GameMenuItem
+                        {
+                            Description = "─────────────────",
+                            MenuSection = restoreMenuSection,
+                            Action = null
+                        };
+                        
+                        yield return new GameMenuItem
+                        {
+                            Description = ResourceProvider.GetString("LOCSaveManagerMenuViewAllBackups"),
+                            MenuSection = restoreMenuSection,
+                            Icon = "🔍",
+                            Action = (menuArgs) =>
+                            {
+                                OpenSaveManager(game);
+                            }
+                        };
                     }
                 }
-            };
+            }
+            else
+            {
+                // 多选时显示提示
+                yield return new GameMenuItem
+                {
+                    Description = ResourceProvider.GetString("LOCSaveManagerMenuRestoreBackup"),
+                    MenuSection = menuSection,
+                    Icon = "↩️",
+                    Action = (menuArgs) =>
+                    {
+                        PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgSelectOneGameRestore"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                };
+            }
         }
 
         /// <summary>
@@ -114,10 +179,29 @@ namespace SaveManager
         /// </summary>
         public override IEnumerable<MainMenuItem> GetMainMenuItems(GetMainMenuItemsArgs args)
         {
+            var menuSection = "@" + ResourceProvider.GetString("LOCSaveManagerMenuSection");
+            
+            // 导出全局配置
             yield return new MainMenuItem
             {
-                Description = "打开备份文件夹",
-                MenuSection = "@存档管理",
+                Description = ResourceProvider.GetString("LOCSaveManagerMenuExportGlobalConfig"),
+                MenuSection = menuSection,
+                Action = (menuArgs) => ExportGlobalConfig()
+            };
+
+            // 导入全局配置
+            yield return new MainMenuItem
+            {
+                Description = ResourceProvider.GetString("LOCSaveManagerMenuImportGlobalConfig"),
+                MenuSection = menuSection,
+                Action = (menuArgs) => ImportGlobalConfig()
+            };
+
+            // 打开备份文件夹
+            yield return new MainMenuItem
+            {
+                Description = ResourceProvider.GetString("LOCSaveManagerOpenBackupFolder"),
+                MenuSection = menuSection,
                 Action = (menuArgs) =>
                 {
                     var backupsPath = System.IO.Path.Combine(GetPluginUserDataPath(), "Backups");
@@ -126,22 +210,16 @@ namespace SaveManager
                 }
             };
 
+            // 关于
             yield return new MainMenuItem
             {
-                Description = "关于 Save Manager",
-                MenuSection = "@存档管理",
+                Description = ResourceProvider.GetString("LOCSaveManagerMenuAbout"),
+                MenuSection = menuSection,
                 Action = (menuArgs) =>
                 {
                     PlayniteApi.Dialogs.ShowMessage(
-                        "Save Manager v1.0.0\n\n" +
-                        "一个用于管理游戏存档备份的Playnite插件。\n\n" +
-                        "功能：\n" +
-                        "• 为每个游戏配置存档路径（支持文件夹和文件）\n" +
-                        "• 创建存档备份（ZIP压缩格式）\n" +
-                        "• 为备份添加备注说明\n" +
-                        "• 一键还原到任意备份\n\n" +
-                        "使用方法：右键游戏 → Save Manager → 存档管理",
-                        "关于 Save Manager",
+                        ResourceProvider.GetString("LOCSaveManagerAboutContent"),
+                        ResourceProvider.GetString("LOCSaveManagerMenuAbout"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                 }
@@ -163,7 +241,7 @@ namespace SaveManager
 
                 window.Width = 900;
                 window.Height = 650;
-                window.Title = $"存档管理 - {game.Name}";
+                window.Title = string.Format(ResourceProvider.GetString("LOCSaveManagerWindowTitle"), game.Name);
                 window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
                 window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
 
@@ -179,7 +257,7 @@ namespace SaveManager
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to open Save Manager window");
-                PlayniteApi.Dialogs.ShowErrorMessage($"打开存档管理器失败: {ex.Message}", "错误");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -194,8 +272,8 @@ namespace SaveManager
                 if (config == null || config.SavePaths.Count == 0)
                 {
                     var result = PlayniteApi.Dialogs.ShowMessage(
-                        $"游戏 \"{game.Name}\" 尚未配置存档路径。\n\n是否现在配置？",
-                        "未配置存档路径",
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgNoConfig"), game.Name),
+                        ResourceProvider.GetString("LOCSaveManagerTitleNoConfig"),
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
@@ -206,26 +284,13 @@ namespace SaveManager
                     return;
                 }
 
-                // 检查是否需要确认
-                if (settings.ConfirmBeforeBackup)
-                {
-                    var confirmResult = PlayniteApi.Dialogs.ShowMessage(
-                        $"确定要为游戏 \"{game.Name}\" 创建存档备份吗？",
-                        "确认备份",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
 
-                    if (confirmResult != MessageBoxResult.Yes)
-                    {
-                        return;
-                    }
-                }
 
                 // 获取备份备注
                 var noteResult = PlayniteApi.Dialogs.SelectString(
-                    "请输入备份备注（可选）：",
-                    "备份备注",
-                    "快速备份");
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterNote"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleBackupNote"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleQuickBackup"));
 
                 if (!noteResult.Result)
                 {
@@ -234,15 +299,15 @@ namespace SaveManager
 
                 var backup = backupService.CreateBackup(game.Id, game.Name, noteResult.SelectedString);
                 PlayniteApi.Dialogs.ShowMessage(
-                    $"备份创建成功！\n\n文件名: {backup.Name}\n大小: {backup.FormattedSize}",
-                    "成功",
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess"), backup.Name, backup.FormattedSize),
+                    "Save Manager",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Quick backup failed for game {game.Name}");
-                PlayniteApi.Dialogs.ShowErrorMessage($"快速备份失败: {ex.Message}", "错误");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -257,8 +322,8 @@ namespace SaveManager
                 if (backups.Count == 0)
                 {
                     PlayniteApi.Dialogs.ShowMessage(
-                        $"游戏 \"{game.Name}\" 没有可用的备份。",
-                        "无备份",
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgNoBackups"), game.Name),
+                        ResourceProvider.GetString("LOCSaveManagerTitleNoBackups"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                     return;
@@ -266,25 +331,51 @@ namespace SaveManager
 
                 var latestBackup = backups[0];
                 var result = PlayniteApi.Dialogs.ShowMessage(
-                    $"确定要还原到最近的备份吗？\n\n" +
-                    $"备份名称: {latestBackup.Name}\n" +
-                    $"创建时间: {latestBackup.FormattedDate}\n" +
-                    $"备注: {(string.IsNullOrEmpty(latestBackup.Description) ? "无" : latestBackup.Description)}\n\n" +
-                    "⚠️ 这将覆盖当前的存档文件！",
-                    "确认还原",
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmQuickRestore"), 
+                        latestBackup.Name, 
+                        latestBackup.FormattedDate, 
+                        (string.IsNullOrEmpty(latestBackup.Description) ? "-" : latestBackup.Description)),
+                    ResourceProvider.GetString("LOCSaveManagerTitleConfirmRestore"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
 
                 if (result == MessageBoxResult.Yes)
                 {
                     backupService.RestoreBackup(latestBackup);
-                    PlayniteApi.Dialogs.ShowMessage("备份还原成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Quick restore failed for game {game.Name}");
-                PlayniteApi.Dialogs.ShowErrorMessage($"快速还原失败: {ex.Message}", "错误");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 还原指定备份（从右键菜单调用）
+        /// </summary>
+        private void RestoreSpecificBackup(Game game, SaveBackup backup)
+        {
+            try
+            {
+                var displayName = string.IsNullOrEmpty(backup.Description) ? backup.Name : backup.Description;
+                var result = PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmRestoreNamed"), displayName),
+                    ResourceProvider.GetString("LOCSaveManagerTitleConfirmRestore"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    backupService.RestoreBackup(backup);
+                    PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Restore backup failed for game {game.Name}");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -302,6 +393,104 @@ namespace SaveManager
         public override UserControl GetSettingsView(bool firstRunSettings)
         {
             return new SaveManagerSettingsView();
+        }
+
+        /// <summary>
+        /// 导出全局配置
+        /// </summary>
+        private void ExportGlobalConfig()
+        {
+            try
+            {
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = ResourceProvider.GetString("LOCSaveManagerMenuExportGlobalConfig"),
+                    Filter = "ZIP Archive (*.zip)|*.zip",
+                    FileName = $"SaveManager_GlobalConfig_{DateTime.Now:yyyyMMdd_HHmmss}.zip"
+                };
+
+                var window = PlayniteApi.Dialogs.GetCurrentAppWindow();
+                if (dialog.ShowDialog(window) == true)
+                {
+                    var dataPath = GetPluginUserDataPath();
+                    
+                    // 创建ZIP文件
+                    if (System.IO.File.Exists(dialog.FileName))
+                    {
+                        System.IO.File.Delete(dialog.FileName);
+                    }
+                    
+                    System.IO.Compression.ZipFile.CreateFromDirectory(dataPath, dialog.FileName);
+                    
+                    PlayniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerGlobalExportSuccess"), dialog.FileName),
+                        "Save Manager",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to export global config");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 导入全局配置
+        /// </summary>
+        private void ImportGlobalConfig()
+        {
+            try
+            {
+                // 显示警告
+                var warningResult = PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerGlobalImportWarning"),
+                    ResourceProvider.GetString("LOCSaveManagerGlobalImportTitle"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (warningResult != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                var path = PlayniteApi.Dialogs.SelectFile("ZIP Archive (*.zip)|*.zip");
+                if (string.IsNullOrEmpty(path))
+                {
+                    return;
+                }
+
+                var dataPath = GetPluginUserDataPath();
+
+                // 备份当前配置
+                var backupPath = dataPath + "_backup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                if (System.IO.Directory.Exists(dataPath))
+                {
+                    System.IO.Directory.Move(dataPath, backupPath);
+                }
+
+                // 解压导入的配置
+                System.IO.Directory.CreateDirectory(dataPath);
+                System.IO.Compression.ZipFile.ExtractToDirectory(path, dataPath);
+
+                // 删除备份（导入成功后）
+                if (System.IO.Directory.Exists(backupPath))
+                {
+                    System.IO.Directory.Delete(backupPath, true);
+                }
+
+                PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerGlobalImportSuccess"),
+                    "Save Manager",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to import global config");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
         }
     }
 }

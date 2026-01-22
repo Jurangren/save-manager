@@ -137,7 +137,7 @@ namespace SaveManager.ViewModels
             {
                 using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
                 {
-                    dialog.Description = "请选择存档文件夹";
+                    dialog.Description = ResourceProvider.GetString("LOCSaveManagerDialogSelectFolder");
                     dialog.ShowNewFolderButton = true;
 
                     // 尝试设置初始目录
@@ -159,7 +159,7 @@ namespace SaveManager.ViewModels
             }
             catch (Exception ex)
             {
-                playniteApi.Dialogs.ShowErrorMessage($"打开文件夹选择器失败: {ex.Message}", "错误");
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -169,7 +169,7 @@ namespace SaveManager.ViewModels
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Title = "选择要备份的文件",
+                    Title = ResourceProvider.GetString("LOCSaveManagerDialogSelectFile"),
                     Filter = "All files|*.*",
                     Multiselect = true, // 允许选择多个文件
                     CheckFileExists = true
@@ -198,7 +198,7 @@ namespace SaveManager.ViewModels
             }
             catch (Exception ex)
             {
-                 playniteApi.Dialogs.ShowErrorMessage($"打开文件选择器失败: {ex.Message}", "错误");
+                 playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -223,7 +223,7 @@ namespace SaveManager.ViewModels
             // 3. 查重
             if (SavePaths.Any(p => p.Path.Equals(finalPath, StringComparison.OrdinalIgnoreCase)))
             {
-                playniteApi.Dialogs.ShowMessage("该路径已添加。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgPathExists"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -234,11 +234,14 @@ namespace SaveManager.ViewModels
                 IsDirectory = isDirectory
             });
             UpdateHasSavePaths();
+            
+            // 自动保存配置
+            SaveConfigSilent();
         }
 
         private void ImportConfig()
         {
-            var path = playniteApi.Dialogs.SelectFile("配置文件 (*.json)|*.json");
+            var path = playniteApi.Dialogs.SelectFile(ResourceProvider.GetString("LOCSaveManagerDialogImportConfig"));
             if (string.IsNullOrEmpty(path)) return;
 
             try
@@ -251,8 +254,8 @@ namespace SaveManager.ViewModels
                 if (config != null && config.SavePaths != null)
                 {
                     var result = playniteApi.Dialogs.ShowMessage(
-                        $"从文件导导入了 {config.SavePaths.Count} 个路径。\n这将覆盖当前配置，是否继续？",
-                        "确认导入",
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgImportConfirm"), config.SavePaths.Count),
+                        ResourceProvider.GetString("LOCSaveManagerTitleConfirmImport"),
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Warning);
 
@@ -264,17 +267,18 @@ namespace SaveManager.ViewModels
                             SavePaths.Add(new SavePathItem { Path = p.Path, IsDirectory = p.IsDirectory });
                         }
                         UpdateHasSavePaths();
-                        playniteApi.Dialogs.ShowMessage("配置导入成功。请记得点击保存。", "成功");
+                        SaveConfigSilent();
+                        playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgImportSuccess"), "Save Manager");
                     }
                 }
                 else
                 {
-                    playniteApi.Dialogs.ShowMessage("无效的配置文件格式。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgInvalidConfig"), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
-                playniteApi.Dialogs.ShowErrorMessage($"导入失败: {ex.Message}", "错误");
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -282,7 +286,7 @@ namespace SaveManager.ViewModels
         {
             if (!HasSavePaths)
             {
-                playniteApi.Dialogs.ShowMessage("当前没有配置任何路径，无法导出。", "提示");
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgExportNoPaths"), "Save Manager");
                 return;
             }
 
@@ -290,8 +294,8 @@ namespace SaveManager.ViewModels
             {
                 var dialog = new Microsoft.Win32.SaveFileDialog
                 {
-                    Title = "导出存档路径配置",
-                    Filter = "配置文件 (*.json)|*.json",
+                    Title = ResourceProvider.GetString("LOCSaveManagerDialogExportConfig"),
+                    Filter = ResourceProvider.GetString("LOCSaveManagerDialogImportConfig"),
                     FileName = $"{game.Name}_SaveConfig.json"
                 };
 
@@ -319,29 +323,29 @@ namespace SaveManager.ViewModels
                     var json = Playnite.SDK.Data.Serialization.ToJson(config, true);
                     File.WriteAllText(dialog.FileName, json);
 
-                    playniteApi.Dialogs.ShowMessage($"配置已成功导出到:\n{dialog.FileName}", "成功");
+                    playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgExportSuccess"), dialog.FileName), "Save Manager");
                 }
             }
             catch (Exception ex)
             {
-                playniteApi.Dialogs.ShowErrorMessage($"导出配置失败: {ex.Message}", "错误");
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
         private void ImportBackup()
         {
-            var path = playniteApi.Dialogs.SelectFile("备份文件 (*.zip)|*.zip");
+            var path = playniteApi.Dialogs.SelectFile(ResourceProvider.GetString("LOCSaveManagerDialogImportBackup"));
             if (string.IsNullOrEmpty(path)) return;
 
             try
             {
                 var backup = backupService.ImportBackup(game.Id, game.Name, path);
                 Backups.Insert(0, backup);
-                playniteApi.Dialogs.ShowMessage($"备份导入成功！\n文件名: {backup.Name}", "成功");
+                playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgImportBackupSuccess"), backup.Name), "Save Manager");
             }
             catch (Exception ex)
             {
-                 playniteApi.Dialogs.ShowErrorMessage($"导入备份失败: {ex.Message}", "错误");
+                 playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -351,6 +355,9 @@ namespace SaveManager.ViewModels
             {
                 SavePaths.Remove(item);
                 UpdateHasSavePaths();
+                
+                // 自动保存配置
+                SaveConfigSilent();
             }
         }
 
@@ -360,6 +367,12 @@ namespace SaveManager.ViewModels
         }
 
         private void SaveConfig()
+        {
+            SaveConfigSilent();
+            playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgConfigSaved"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void SaveConfigSilent()
         {
             var config = new GameSaveConfig
             {
@@ -373,30 +386,36 @@ namespace SaveManager.ViewModels
             };
 
             backupService.SaveGameConfig(config);
-            playniteApi.Dialogs.ShowMessage("存档路径配置已保存。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void CreateBackup()
         {
             if (!HasSavePaths)
             {
-                playniteApi.Dialogs.ShowMessage("请先配置存档路径。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgConfigRequired"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // 先保存配置
-            SaveConfig();
+            // 弹出对话框让用户输入备注
+            var noteResult = playniteApi.Dialogs.SelectString(
+                ResourceProvider.GetString("LOCSaveManagerMsgEnterNote"),
+                ResourceProvider.GetString("LOCSaveManagerTitleBackupNote"),
+                "");
+
+            if (!noteResult.Result)
+            {
+                return;
+            }
 
             try
             {
-                var backup = backupService.CreateBackup(game.Id, game.Name, NewBackupDescription);
+                var backup = backupService.CreateBackup(game.Id, game.Name, noteResult.SelectedString);
                 Backups.Insert(0, backup);
-                NewBackupDescription = string.Empty;
-                playniteApi.Dialogs.ShowMessage($"备份创建成功！\n文件大小: {backup.FormattedSize}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess"), backup.Name, backup.FormattedSize), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                playniteApi.Dialogs.ShowErrorMessage($"创建备份失败: {ex.Message}", "错误");
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 
@@ -408,8 +427,8 @@ namespace SaveManager.ViewModels
             }
 
             var result = playniteApi.Dialogs.ShowMessage(
-                $"确定要还原备份 \"{SelectedBackup.Name}\" 吗？\n\n这将覆盖当前的存档文件！\n\n建议先创建当前存档的备份。",
-                "确认还原",
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmRestoreNamed"), SelectedBackup.Name),
+                ResourceProvider.GetString("LOCSaveManagerTitleConfirmRestore"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -418,11 +437,11 @@ namespace SaveManager.ViewModels
                 try
                 {
                     backupService.RestoreBackup(SelectedBackup);
-                    playniteApi.Dialogs.ShowMessage("备份还原成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    playniteApi.Dialogs.ShowErrorMessage($"还原备份失败: {ex.Message}", "错误");
+                    playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
                 }
             }
         }
@@ -435,8 +454,8 @@ namespace SaveManager.ViewModels
             }
 
             var result = playniteApi.Dialogs.ShowMessage(
-                $"确定要删除备份 \"{SelectedBackup.Name}\" 吗？\n\n此操作无法撤销！",
-                "确认删除",
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmDelete"), SelectedBackup.Name),
+                ResourceProvider.GetString("LOCSaveManagerTitleConfirmDelete"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -448,11 +467,11 @@ namespace SaveManager.ViewModels
                     backupService.DeleteBackup(backup);
                     Backups.Remove(backup);
                     SelectedBackup = null;
-                    playniteApi.Dialogs.ShowMessage("备份已删除。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    playniteApi.Dialogs.ShowErrorMessage($"删除备份失败: {ex.Message}", "错误");
+                    playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
                 }
             }
         }
@@ -465,8 +484,8 @@ namespace SaveManager.ViewModels
             }
 
             var result = playniteApi.Dialogs.SelectString(
-                "请输入新的备注信息：",
-                "修改备注",
+                ResourceProvider.GetString("LOCSaveManagerMsgEnterNote"),
+                ResourceProvider.GetString("LOCSaveManagerTitleEditNote"),
                 SelectedBackup.Description);
 
             if (result.Result)
@@ -489,11 +508,11 @@ namespace SaveManager.ViewModels
                         SelectedBackup = backup;
                     }
                     
-                    playniteApi.Dialogs.ShowMessage("备注修改成功。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    playniteApi.Dialogs.ShowErrorMessage($"修改备注失败: {ex.Message}", "错误");
+                    playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
                 }
             }
         }
@@ -504,7 +523,7 @@ namespace SaveManager.ViewModels
             
             if (!Directory.Exists(backupsPath))
             {
-                playniteApi.Dialogs.ShowMessage("该游戏暂无备份文件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoBackupsFound"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             

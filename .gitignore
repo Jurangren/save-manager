@@ -13,8 +13,8 @@ obj/
 ## Playnite Output
 /*.pext
 
-## Documentation
-doc/
+## Playnite Documentation
+playnite-doc/
 
 ## Temporary Files
 tmp/

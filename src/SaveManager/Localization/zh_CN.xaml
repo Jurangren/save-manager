@@ -1,0 +1,128 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- General -->
+    <sys:String x:Key="LOCSaveManager">存档管理器</sys:String>
+    <sys:String x:Key="LOCSaveManagerSubtitle">存档管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameId">游戏ID: {0}</sys:String>
+
+    <!-- Save Path Config -->
+    <sys:String x:Key="LOCSaveManagerSaveConfigTitle">📂 存档路径配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFolder">添加文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFolderTooltip">添加存档文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFile">添加文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddFileTooltip">添加单个存档文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerRemoveTooltip">移除</sys:String>
+    <sys:String x:Key="LOCSaveManagerNoSavePaths">未配置存档路径&#x0a;请点击上方按钮添加存档文件夹或文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportConfig">导入配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportConfigTooltip">导入其他游戏的路径配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerExportConfig">导出配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerExportConfigTooltip">导出当前路径配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerSaveConfig">保存路径配置</sys:String>
+
+    <!-- Backup Management -->
+    <sys:String x:Key="LOCSaveManagerBackupManagementTitle">💾 备份管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerCreateNewBackup">创建新备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerBackupNotePlaceholder">输入备份备注（可选）</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportBackupTooltip">从外部文件导入备份(ZIP)</sys:String>
+    <sys:String x:Key="LOCSaveManagerImportBackup">导入</sys:String>
+    <sys:String x:Key="LOCSaveManagerCreateBackup">创建备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerNoBackups">暂无备份&#x0a;配置存档路径后创建第一个备份</sys:String>
+    
+    <!-- Backup Actions -->
+    <sys:String x:Key="LOCSaveManagerActionNote">备注</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionNoteTooltip">修改选中备份的备注</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionRestore">还原</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionRestoreTooltip">还原选中的备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionDelete">删除</sys:String>
+    <sys:String x:Key="LOCSaveManagerActionDeleteTooltip">删除选中的备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenBackupFolder">打开文件夹</sys:String>
+
+    <!-- Settings View -->
+    <sys:String x:Key="LOCSaveManagerSettingsTitle">Save Manager 设置</sys:String>
+    <sys:String x:Key="LOCSaveManagerCustomBackupPath">自定义备份目录:</sys:String>
+    <sys:String x:Key="LOCSaveManagerBrowse">浏览...</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackup">游戏结束时自动备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfirmBackup">备份前显示确认对话框</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCount">最大备份数量:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCountTooltip">每个游戏的最大备份数量，0 表示不限制</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxBackupCountHint">(每个游戏，0=不限制)</sys:String>
+    <sys:String x:Key="LOCSaveManagerZipWarning">提示：存档备份将保存为标准ZIP压缩包格式。</sys:String>
+
+    <!-- Messages & Dialogs (C#) -->
+    <sys:String x:Key="LOCSaveManagerMsgSelectOneGame">请只选择一个游戏进行存档管理。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSelectOneGameRestore">请只选择一个游戏进行还原。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuQuickBackup">快速备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuQuickRestore">快速还原（最近备份）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuAbout">关于 Save Manager</sys:String>
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.0
+
+一个用于管理游戏存档备份的Playnite插件。
+
+功能：
+• 为每个游戏配置存档路径（支持文件夹和文件）
+• 创建存档备份（ZIP压缩格式）
+• 为备份添加备注说明
+• 一键还原到任意备份
+
+使用方法：右键游戏 → Save Manager → 存档管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerWindowTitle">存档管理 - {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoConfig">游戏 "{0}" 尚未配置存档路径。&#x0a;&#x0a;是否现在配置？</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleNoConfig">未配置存档路径</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmBackup">确定要为游戏 "{0}" 创建存档备份吗？</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmBackup">确认备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleBackupNote">备份备注</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleQuickBackup">快速备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupSuccess">备份创建成功！&#x0a;&#x0a;文件名: {0}&#x0a;大小: {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoBackups">游戏 "{0}" 没有可用的备份。</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleNoBackups">无备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmQuickRestore">确定要还原到最近的备份吗？&#x0a;&#x0a;备份名称: {0}&#x0a;创建时间: {1}&#x0a;备注: {2}&#x0a;&#x0a;⚠️ 这将覆盖当前的存档文件！</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmRestore">确认还原</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRestoreSuccess">备份还原成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogSelectFolder">请选择存档文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogSelectFile">选择要备份的文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPathExists">该路径已添加。</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogImportConfig">配置文件 (*.json)|*.json</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportConfirm">从文件导导入了 {0} 个路径。&#x0a;这将覆盖当前配置，是否继续？</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmImport">确认导入</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">配置导入成功。请记得点击保存。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInvalidConfig">无效的配置文件格式。</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogExportConfig">导出存档路径配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgExportNoPaths">当前没有配置任何路径，无法导出。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgExportSuccess">配置已成功导出到:&#x0a;{0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerDialogImportBackup">备份文件 (*.zip)|*.zip</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportBackupSuccess">备份导入成功！&#x0a;文件名: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSaved">存档路径配置已保存。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigRequired">请先配置存档路径。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmRestoreNamed">确定要还原备份 "{0}" 吗？&#x0a;&#x0a;这将覆盖当前的存档文件！&#x0a;&#x0a;建议先创建当前存档的备份。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDelete">确定要删除备份 "{0}" 吗？&#x0a;&#x0a;此操作无法撤销！</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleConfirmDelete">确认删除</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteSuccess">备份已删除。</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleEditNote">修改备注</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterNote">请输入新的备注信息：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoteSuccess">备注修改成功。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoBackupsFound">该游戏暂无备份文件。</sys:String>
+
+    <!-- Menu Items -->
+    <sys:String x:Key="LOCSaveManagerMenuSection">存档管理-SaveManager</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuRestoreBackup">还原备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuViewAllBackups">查找所有备份...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuExportGlobalConfig">导出全局配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerMenuImportGlobalConfig">导入全局配置</sys:String>
+    
+    <!-- Global Config Import/Export -->
+    <sys:String x:Key="LOCSaveManagerGlobalExportSuccess">全局配置已成功导出到:&#x0a;{0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportWarning">警告：这将完全覆盖SaveManager的配置！
+
+此操作将导入所有游戏的存档路径和备份配置。
+
+对于跨机器备份，配置中的路径可能不存在，这可能导致：
+• 显示虚假的备份条目
+• 游戏存档路径不正确
+
+确定要继续吗？</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportTitle">导入全局配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">全局配置导入成功！&#x0a;&#x0a;请重启Playnite以使更改生效。</sys:String>
+
+</ResourceDictionary>
