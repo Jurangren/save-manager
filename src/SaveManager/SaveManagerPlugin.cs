@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using Playnite.SDK;
+using Playnite.SDK.Events;
 using Playnite.SDK.Models;
 using Playnite.SDK.Plugins;
 using SaveManager.Models;
@@ -393,6 +394,70 @@ namespace SaveManager
         public override UserControl GetSettingsView(bool firstRunSettings)
         {
             return new SaveManagerSettingsView();
+        }
+
+        /// <summary>
+        /// 游戏停止时触发 - 用于自动备份
+        /// </summary>
+        public override void OnGameStopped(OnGameStoppedEventArgs args)
+        {
+            // 检查是否启用了自动备份
+            if (!settings.AutoBackupOnGameExit)
+            {
+                return;
+            }
+
+            var game = args.Game;
+            if (game == null)
+            {
+                return;
+            }
+
+            try
+            {
+                // 检查游戏是否已配置存档路径
+                var config = backupService.GetGameConfig(game.Id);
+                if (config == null || config.SavePaths == null || config.SavePaths.Count == 0)
+                {
+                    logger.Info($"Auto backup skipped for game '{game.Name}': no save paths configured");
+                    return;
+                }
+
+                // 创建自动备份
+                var elapsedMinutes = args.ElapsedSeconds / 60;
+                var noteText = string.Format(
+                    ResourceProvider.GetString("LOCSaveManagerAutoBackupNote"),
+                    elapsedMinutes);
+                
+                var backup = backupService.CreateBackup(game.Id, game.Name, noteText, isAutoBackup: true);
+                
+                logger.Info($"Auto backup created for game '{game.Name}': {backup.Name}");
+
+                // 清理超出数量限制的旧自动备份
+                backupService.CleanupOldAutoBackups(game.Id, settings.MaxAutoBackupCount);
+
+                // 显示 Playnite 内置通知
+                PlayniteApi.Notifications.Add(new NotificationMessage(
+                    $"SaveManager_AutoBackup_{game.Id}",
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerAutoBackupSuccess"), game.Name, backup.Name),
+                    NotificationType.Info));
+
+                // 显示 Windows Toast 通知
+                ToastNotificationService.ShowBackupSuccess(game.Name, backup.Name, game.Icon);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Auto backup failed for game '{game.Name}'");
+                
+                // 显示 Playnite 内置错误通知
+                PlayniteApi.Notifications.Add(new NotificationMessage(
+                    $"SaveManager_AutoBackupError_{game.Id}",
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerAutoBackupFailed"), game.Name, ex.Message),
+                    NotificationType.Error));
+
+                // 显示 Windows Toast 错误通知
+                ToastNotificationService.ShowBackupError(game.Name, ex.Message);
+            }
         }
 
         /// <summary>

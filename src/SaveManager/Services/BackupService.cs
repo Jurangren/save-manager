@@ -127,7 +127,11 @@ namespace SaveManager.Services
         /// <summary>
         /// 创建备份
         /// </summary>
-        public SaveBackup CreateBackup(Guid gameId, string gameName, string description = null)
+        /// <param name="gameId">游戏ID</param>
+        /// <param name="gameName">游戏名称</param>
+        /// <param name="description">备注</param>
+        /// <param name="isAutoBackup">是否为自动备份（自动备份受数量限制，手动备份不受）</param>
+        public SaveBackup CreateBackup(Guid gameId, string gameName, string description = null, bool isAutoBackup = false)
         {
             var config = GetGameConfig(gameId);
             if (config == null || config.SavePaths.Count == 0)
@@ -163,14 +167,15 @@ namespace SaveManager.Services
                 GameId = gameId,
                 Name = $"Backup_{DateTime.Now:yyyyMMdd_HHmmss}",
                 Description = description ?? "",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                IsAutoBackup = isAutoBackup
             };
 
             var backupFileName = $"{backup.Name}.zip";
             backup.BackupFilePath = Path.Combine(gameBackupPath, backupFileName);
 
-            // 创建ZIP文件
-            CreateZipBackup(config.SavePaths, backup.BackupFilePath, installDir);
+            // 创建ZIP文件（包含备份信息）
+            CreateZipBackup(config.SavePaths, backup.BackupFilePath, installDir, gameName, description ?? "");
 
             // 获取文件大小
             var fileInfo = new FileInfo(backup.BackupFilePath);
@@ -184,14 +189,17 @@ namespace SaveManager.Services
             gameBackups[gameId].Add(backup);
             SaveData();
 
-            logger.Info($"Created backup for game {gameName}: {backup.BackupFilePath}");
+            logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {backup.BackupFilePath}");
             return backup;
         }
 
         /// <summary>
         /// 创建ZIP备份文件
         /// </summary>
-        private void CreateZipBackup(List<SavePath> savePaths, string zipPath, string installDir)
+        /// <summary>
+        /// 创建ZIP备份文件
+        /// </summary>
+        private void CreateZipBackup(List<SavePath> savePaths, string zipPath, string installDir, string gameName, string description)
         {
             // 如果文件已存在则删除
             if (File.Exists(zipPath))
@@ -201,6 +209,21 @@ namespace SaveManager.Services
 
             using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
             {
+                // ------------- 1. 写入备份元数据 (backup_info.json) -------------
+                var infoEntry = zip.CreateEntry("backup_info.json");
+                using (var writer = new StreamWriter(infoEntry.Open()))
+                {
+                    var info = new BackupInfo
+                    {
+                        Description = description,
+                        CreatedAt = DateTime.Now,
+                        GameName = gameName,
+                        Version = 1
+                    };
+                    writer.Write(Playnite.SDK.Data.Serialization.ToJson(info, true));
+                }
+                // -----------------------------------------------------------
+
                 foreach (var savePath in savePaths)
                 {
                     var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
@@ -364,7 +387,10 @@ namespace SaveManager.Services
                 throw new FileNotFoundException("Source file not found", sourceFilePath);
             }
 
-            // 验证 ZIP 文件有效性 (包含 __save_paths__.json)
+            string importedDescription = "Imported Backup";
+            DateTime importedCreatedAt = DateTime.Now;
+
+            // 验证 ZIP 文件有效性并读取元数据
             try 
             {
                 using (var zip = ZipFile.OpenRead(sourceFilePath))
@@ -372,6 +398,35 @@ namespace SaveManager.Services
                     if (zip.GetEntry("__save_paths__.json") == null)
                     {
                          throw new InvalidOperationException("Invalid backup file: missing path definition (__save_paths__.json).");
+                    }
+
+                    // 尝试读取 backup_info.json
+                    var infoEntry = zip.GetEntry("backup_info.json");
+                    if (infoEntry != null)
+                    {
+                        try
+                        {
+                            using (var reader = new StreamReader(infoEntry.Open()))
+                            {
+                                var info = Playnite.SDK.Data.Serialization.FromJson<BackupInfo>(reader.ReadToEnd());
+                                if (info != null)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(info.Description))
+                                    {
+                                        importedDescription = info.Description;
+                                    }
+                                    // 可以选择信任 ZIP 内的时间，或者是导入时间
+                                    if (info.CreatedAt != DateTime.MinValue)
+                                    {
+                                        importedCreatedAt = info.CreatedAt;
+                                    } 
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Warn(ex, "Failed to read backup_info.json directly during import");
+                        }
                     }
                 }
             } 
@@ -401,9 +456,9 @@ namespace SaveManager.Services
             {
                 GameId = gameId,
                 Name = backupName,
-                Description = "Imported Backup",
+                Description = importedDescription,
                 BackupFilePath = destPath,
-                CreatedAt = DateTime.Now,
+                CreatedAt = importedCreatedAt,
                 FileSize = fileInfo.Length
             };
 
@@ -463,14 +518,63 @@ namespace SaveManager.Services
         /// </summary>
         public void UpdateBackupDescription(SaveBackup backup, string description)
         {
+            // 1. 更新本地缓存的数据
             if (gameBackups.TryGetValue(backup.GameId, out var backups))
             {
                 var existingBackup = backups.FirstOrDefault(b => b.Id == backup.Id);
                 if (existingBackup != null)
                 {
                     existingBackup.Description = description;
+                    
+                    // 修改备注后，自动备份变为手动备份（不再受自动清理限制）
+                    if (existingBackup.IsAutoBackup)
+                    {
+                        existingBackup.IsAutoBackup = false;
+                        logger.Info($"Backup '{existingBackup.Name}' changed from auto to manual due to note edit");
+                    }
+                    
                     SaveData();
                 }
+            }
+
+            // 2. 同步更新 ZIP 文件内的 metadata
+            try
+            {
+                if (File.Exists(backup.BackupFilePath))
+                {
+                    using (var zip = ZipFile.Open(backup.BackupFilePath, ZipArchiveMode.Update))
+                    {
+                        var entry = zip.GetEntry("backup_info.json");
+                        if (entry != null)
+                        {
+                            entry.Delete(); // 删除旧的，重新创建
+                        }
+
+                        entry = zip.CreateEntry("backup_info.json");
+                        
+                        // 尝试获取游戏名称（用于元数据完整性）
+                        var game = playniteApi.Database.Games.Get(backup.GameId);
+                        string gameName = game?.Name ?? "Unknown Game";
+
+                        var info = new BackupInfo
+                        {
+                            Description = description,
+                            CreatedAt = backup.CreatedAt, // 保持原始创建时间
+                            GameName = gameName,
+                            Version = 1
+                        };
+
+                        using (var writer = new StreamWriter(entry.Open()))
+                        {
+                            writer.Write(Playnite.SDK.Data.Serialization.ToJson(info, true));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to update backup_info.json in ZIP: {backup.BackupFilePath}");
+                // 注意：这里我们记录错误但不抛出异常，因为本地缓存已经更新，这是一个非致命错误
             }
         }
 
@@ -490,6 +594,81 @@ namespace SaveManager.Services
             var invalidChars = Path.GetInvalidFileNameChars();
             var result = new string(fileName.Where(c => !invalidChars.Contains(c)).ToArray());
             return string.IsNullOrWhiteSpace(result) ? "game" : result;
+        }
+
+        /// <summary>
+        /// 清理超出数量限制的旧自动备份
+        /// </summary>
+        /// <param name="gameId">游戏ID</param>
+        /// <param name="maxCount">最大保留数量（0表示不限制）</param>
+        public void CleanupOldAutoBackups(Guid gameId, int maxCount)
+        {
+            if (maxCount <= 0)
+            {
+                return; // 0 或负数表示不限制
+            }
+
+            if (!gameBackups.TryGetValue(gameId, out var backups))
+            {
+                return;
+            }
+
+            // 只筛选自动备份
+            var autoBackups = backups.Where(b => b.IsAutoBackup).ToList();
+            
+            if (autoBackups.Count <= maxCount)
+            {
+                return; // 自动备份数量未超出限制
+            }
+
+            try
+            {
+                // 按创建时间排序，最新的在前
+                var sortedAutoBackups = autoBackups.OrderByDescending(b => b.CreatedAt).ToList();
+                
+                // 获取需要删除的自动备份（超出限制的旧备份）
+                var backupsToDelete = sortedAutoBackups.Skip(maxCount).ToList();
+                
+                logger.Info($"Cleaning up {backupsToDelete.Count} old auto-backups for game ID {gameId}");
+                
+                foreach (var backup in backupsToDelete)
+                {
+                    try
+                    {
+                        // 删除物理文件
+                        if (File.Exists(backup.BackupFilePath))
+                        {
+                            File.Delete(backup.BackupFilePath);
+                        }
+                        
+                        // 从列表中移除
+                        backups.Remove(backup);
+                        logger.Info($"Deleted old auto-backup: {backup.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Warn(ex, $"Failed to delete old backup: {backup.BackupFilePath}");
+                    }
+                }
+                
+                // 保存更新后的数据
+                SaveData();
+                
+                // 检查备份目录是否为空，如果为空则删除
+                if (backups.Count == 0)
+                {
+                    var backupDir = Path.GetDirectoryName(backupsToDelete.FirstOrDefault()?.BackupFilePath);
+                    if (!string.IsNullOrEmpty(backupDir) && Directory.Exists(backupDir) && !Directory.EnumerateFileSystemEntries(backupDir).Any())
+                    {
+                        Directory.Delete(backupDir);
+                    }
+                    gameBackups.Remove(gameId);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to cleanup old backups for game ID {gameId}");
+            }
         }
 
         /// <summary>

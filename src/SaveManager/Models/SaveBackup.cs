@@ -1,12 +1,21 @@
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace SaveManager.Models
 {
     /// <summary>
     /// 存档备份记录
     /// </summary>
-    public class SaveBackup
+    public class SaveBackup : INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         /// <summary>
         /// 备份ID
         /// </summary>
@@ -22,10 +31,22 @@ namespace SaveManager.Models
         /// </summary>
         public string Name { get; set; }
 
+        private string _description;
         /// <summary>
         /// 备份描述/备注
         /// </summary>
-        public string Description { get; set; }
+        public string Description
+        {
+            get => _description;
+            set
+            {
+                if (_description != value)
+                {
+                    _description = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         /// <summary>
         /// 备份ZIP文件路径
@@ -41,6 +62,11 @@ namespace SaveManager.Models
         /// 文件大小（字节）
         /// </summary>
         public long FileSize { get; set; }
+
+        /// <summary>
+        /// 是否为自动备份（用于自动清理限制，修改备注后会变为手动备份）
+        /// </summary>
+        public bool IsAutoBackup { get; set; } = false;
 
         /// <summary>
         /// 格式化的文件大小

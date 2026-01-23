@@ -15,6 +15,14 @@ namespace SaveManager.Views
         {
             InitializeComponent();
         }
+
+        private void BackupsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is ViewModels.SaveManagerViewModel viewModel && sender is ListBox listBox)
+            {
+                viewModel.UpdateSelection(listBox.SelectedItems);
+            }
+        }
     }
 
     /// <summary>

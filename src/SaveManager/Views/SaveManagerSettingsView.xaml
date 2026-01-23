@@ -12,25 +12,15 @@
     <StackPanel Margin="20">
         <TextBlock Text="{DynamicResource LOCSaveManagerSettingsTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
         
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock Text="{DynamicResource LOCSaveManagerCustomBackupPath}" VerticalAlignment="Center" Width="120"/>
-            <TextBox Text="{Binding CustomBackupPath}" Width="300" Margin="10,0"/>
-            <Button Content="{DynamicResource LOCSaveManagerBrowse}" Command="{Binding BrowseBackupPathCommand}" Padding="10,4"/>
-        </StackPanel>
-        
         <CheckBox Content="{DynamicResource LOCSaveManagerAutoBackup}" 
                   IsChecked="{Binding AutoBackupOnGameExit}" 
                   Margin="0,10,0,0"/>
         
-        <CheckBox Content="{DynamicResource LOCSaveManagerConfirmBackup}" 
-                  IsChecked="{Binding ConfirmBeforeBackup}" 
-                  Margin="0,10,0,0"/>
-        
         <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-            <TextBlock Text="{DynamicResource LOCSaveManagerMaxBackupCount}" VerticalAlignment="Center"/>
-            <TextBox Text="{Binding MaxBackupCount}" Width="60" Margin="10,0" 
-                     ToolTip="{DynamicResource LOCSaveManagerMaxBackupCountTooltip}"/>
-            <TextBlock Text="{DynamicResource LOCSaveManagerMaxBackupCountHint}" VerticalAlignment="Center" Opacity="0.6"/>
+            <TextBlock Text="{DynamicResource LOCSaveManagerMaxAutoBackupCount}" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding MaxAutoBackupCount}" Width="60" Margin="10,0" 
+                     ToolTip="{DynamicResource LOCSaveManagerMaxAutoBackupCountTooltip}"/>
+            <TextBlock Text="{DynamicResource LOCSaveManagerMaxAutoBackupCountHint}" VerticalAlignment="Center" Opacity="0.6"/>
         </StackPanel>
         
         <TextBlock Text="{DynamicResource LOCSaveManagerZipWarning}" 

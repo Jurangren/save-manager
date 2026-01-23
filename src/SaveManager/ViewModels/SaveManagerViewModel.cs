@@ -45,10 +45,31 @@ namespace SaveManager.ViewModels
         public SaveBackup SelectedBackup
         {
             get => _selectedBackup;
-            set { _selectedBackup = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsBackupSelected)); }
+            set 
+            { 
+                _selectedBackup = value; 
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(IsBackupSelected));
+                OnPropertyChanged(nameof(IsSingleBackupSelected));
+            }
         }
 
-        public bool IsBackupSelected => SelectedBackup != null;
+        private ObservableCollection<SaveBackup> _selectedBackups = new ObservableCollection<SaveBackup>();
+        public ObservableCollection<SaveBackup> SelectedBackups
+        {
+            get => _selectedBackups;
+            set
+            {
+                _selectedBackups = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsBackupSelected));
+                OnPropertyChanged(nameof(IsSingleBackupSelected));
+            }
+        }
+
+        // 兼容性属性
+        public bool IsBackupSelected => SelectedBackups != null && SelectedBackups.Count > 0;
+        public bool IsSingleBackupSelected => SelectedBackups != null && SelectedBackups.Count == 1;
 
         private string _newBackupDescription;
         public string NewBackupDescription
@@ -86,17 +107,18 @@ namespace SaveManager.ViewModels
 
             SavePaths = new ObservableCollection<SavePathItem>();
             Backups = new ObservableCollection<SaveBackup>();
+            SelectedBackups = new ObservableCollection<SaveBackup>();
 
             // 初始化命令
             AddFolderCommand = new RelayCommand(AddFolder);
             AddFileCommand = new RelayCommand(AddFile);
             RemovePathCommand = new RelayCommand<SavePathItem>(RemovePath);
             CreateBackupCommand = new RelayCommand(CreateBackup, () => HasSavePaths);
-            RestoreBackupCommand = new RelayCommand(RestoreBackup, () => IsBackupSelected);
+            RestoreBackupCommand = new RelayCommand(RestoreBackup, () => IsSingleBackupSelected);
             DeleteBackupCommand = new RelayCommand(DeleteBackup, () => IsBackupSelected);
             OpenBackupFolderCommand = new RelayCommand(OpenBackupFolder);
             SaveConfigCommand = new RelayCommand(SaveConfig);
-            EditBackupNoteCommand = new RelayCommand(EditBackupNote, () => IsBackupSelected);
+            EditBackupNoteCommand = new RelayCommand(EditBackupNote, () => IsSingleBackupSelected);
             ImportConfigCommand = new RelayCommand(ImportConfig);
             ExportConfigCommand = new RelayCommand(ExportConfig);
             ImportBackupCommand = new RelayCommand(ImportBackup);
@@ -135,26 +157,23 @@ namespace SaveManager.ViewModels
         {
             try
             {
-                using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+                // 设置初始目录为游戏安装目录
+                string initialDir = "";
+                if (!string.IsNullOrEmpty(game.InstallDirectory))
                 {
-                    dialog.Description = ResourceProvider.GetString("LOCSaveManagerDialogSelectFolder");
-                    dialog.ShowNewFolderButton = true;
-
-                    // 尝试设置初始目录
-                    // Fix: 规范化路径以提高兼容性
-                    if (!string.IsNullOrEmpty(game.InstallDirectory))
+                    var normalizedPath = game.InstallDirectory.Replace('/', '\\').TrimEnd('\\');
+                    if (Directory.Exists(normalizedPath))
                     {
-                        var normalizedPath = game.InstallDirectory.Replace('/', '\\').TrimEnd('\\');
-                        if (Directory.Exists(normalizedPath))
-                        {
-                            dialog.SelectedPath = normalizedPath;
-                        }
+                        initialDir = normalizedPath;
                     }
+                }
 
-                    if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                    {
-                        ProcessSelectedPath(dialog.SelectedPath, true);
-                    }
+                // 使用 Playnite SDK 的文件夹选择对话框
+                var selectedPath = playniteApi.Dialogs.SelectFolder();
+                
+                if (!string.IsNullOrEmpty(selectedPath))
+                {
+                    ProcessSelectedPath(selectedPath, true);
                 }
             }
             catch (Exception ex)
@@ -334,14 +353,44 @@ namespace SaveManager.ViewModels
 
         private void ImportBackup()
         {
-            var path = playniteApi.Dialogs.SelectFile(ResourceProvider.GetString("LOCSaveManagerDialogImportBackup"));
-            if (string.IsNullOrEmpty(path)) return;
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = ResourceProvider.GetString("LOCSaveManagerDialogImportBackup"),
+                Filter = "Backup File (*.zip)|*.zip",
+                Multiselect = true
+            };
+
+            var window = playniteApi.Dialogs.GetCurrentAppWindow();
+            if (dialog.ShowDialog(window) != true) return;
 
             try
             {
-                var backup = backupService.ImportBackup(game.Id, game.Name, path);
-                Backups.Insert(0, backup);
-                playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgImportBackupSuccess"), backup.Name), "Save Manager");
+                int successCount = 0;
+                SaveBackup lastBackup = null;
+
+                foreach (var path in dialog.FileNames)
+                {
+                    try
+                    {
+                        var backup = backupService.ImportBackup(game.Id, game.Name, path);
+                        Backups.Insert(0, backup);
+                        lastBackup = backup;
+                        successCount++;
+                    }
+                    catch (Exception innerEx)
+                    {
+                        playniteApi.Dialogs.ShowErrorMessage($"Import failed for {Path.GetFileName(path)}: {innerEx.Message}", "Import Error");
+                    }
+                }
+
+                if (successCount == 1 && lastBackup != null)
+                {
+                    playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgImportBackupSuccess"), lastBackup.Name), "Save Manager");
+                }
+                else if (successCount > 1)
+                {
+                    playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgImportMultipleBackupsSuccess"), successCount), "Save Manager");
+                }
             }
             catch (Exception ex)
             {
@@ -421,13 +470,12 @@ namespace SaveManager.ViewModels
 
         private void RestoreBackup()
         {
-            if (SelectedBackup == null)
-            {
-                return;
-            }
+            var backup = SelectedBackups.FirstOrDefault();
+            if (backup == null) return;
 
+            // 确认还原
             var result = playniteApi.Dialogs.ShowMessage(
-                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmRestoreNamed"), SelectedBackup.Name),
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmRestoreNamed"), backup.Name),
                 ResourceProvider.GetString("LOCSaveManagerTitleConfirmRestore"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -436,7 +484,7 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
-                    backupService.RestoreBackup(SelectedBackup);
+                    backupService.RestoreBackup(backup);
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
@@ -448,13 +496,20 @@ namespace SaveManager.ViewModels
 
         private void DeleteBackup()
         {
-            if (SelectedBackup == null)
+            if (SelectedBackups.Count == 0) return;
+
+            string confirmMsg;
+            if (SelectedBackups.Count == 1)
             {
-                return;
+                confirmMsg = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmDelete"), SelectedBackups[0].Name);
+            }
+            else
+            {
+                confirmMsg = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmDeleteMultiple"), SelectedBackups.Count);
             }
 
             var result = playniteApi.Dialogs.ShowMessage(
-                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfirmDelete"), SelectedBackup.Name),
+                confirmMsg,
                 ResourceProvider.GetString("LOCSaveManagerTitleConfirmDelete"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -463,11 +518,23 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
-                    var backup = SelectedBackup;
-                    backupService.DeleteBackup(backup);
-                    Backups.Remove(backup);
-                    SelectedBackup = null;
-                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // 创建一个临时列表来遍历，因为 SelectedBackups 在删除过程中可能会改变
+                    var backupsToDelete = SelectedBackups.ToList();
+                    
+                    foreach (var backup in backupsToDelete)
+                    {
+                        backupService.DeleteBackup(backup);
+                        Backups.Remove(backup);
+                    }
+                    
+                    SelectedBackups.Clear();
+                    UpdateSelection(new System.Collections.ArrayList());
+
+                    string successMsg = backupsToDelete.Count > 1 
+                        ? $"Deleted {backupsToDelete.Count} backups." 
+                        : ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess");
+                        
+                    playniteApi.Dialogs.ShowMessage(successMsg, "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -478,35 +545,25 @@ namespace SaveManager.ViewModels
 
         private void EditBackupNote()
         {
-            if (SelectedBackup == null)
-            {
-                return;
-            }
+            var backup = SelectedBackups.FirstOrDefault();
+            if (backup == null) return;
 
             var result = playniteApi.Dialogs.SelectString(
                 ResourceProvider.GetString("LOCSaveManagerMsgEnterNote"),
                 ResourceProvider.GetString("LOCSaveManagerTitleEditNote"),
-                SelectedBackup.Description);
+                backup.Description);
 
             if (result.Result)
             {
                 try
                 {
-                    var backup = SelectedBackup;
                     var newDescription = result.SelectedString;
                     
+                    // 更新服务端和 ZIP 文件
                     backupService.UpdateBackupDescription(backup, newDescription);
                     
-                    // 更新对象属性
+                    // 更新对象属性（会自动触发 UI 更新，因为 SaveBackup 实现了 INotifyPropertyChanged）
                     backup.Description = newDescription;
-
-                    // 强制刷新UI：通过替换集合中的项来触发更新
-                    var index = Backups.IndexOf(backup);
-                    if (index != -1)
-                    {
-                        Backups[index] = backup;
-                        SelectedBackup = backup;
-                    }
                     
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -528,6 +585,28 @@ namespace SaveManager.ViewModels
             }
             
             System.Diagnostics.Process.Start("explorer.exe", backupsPath);
+        }
+
+        /// <summary>
+        /// 更新选中项 (由 View 调用)
+        /// </summary>
+        public void UpdateSelection(System.Collections.IList items)
+        {
+            SelectedBackups.Clear();
+            foreach (SaveBackup item in items)
+            {
+                SelectedBackups.Add(item);
+            }
+            
+            // 确保 SelectedBackup 与第一个选中项同步（为了兼容性）
+            _selectedBackup = SelectedBackups.Count > 0 ? SelectedBackups[0] : null;
+            OnPropertyChanged(nameof(SelectedBackup));
+            
+            OnPropertyChanged(nameof(IsBackupSelected));
+            OnPropertyChanged(nameof(IsSingleBackupSelected));
+            
+            // 刷新命令状态
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)

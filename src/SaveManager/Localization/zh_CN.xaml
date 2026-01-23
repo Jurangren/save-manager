@@ -45,10 +45,17 @@
     <sys:String x:Key="LOCSaveManagerBrowse">浏览...</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackup">游戏结束时自动备份</sys:String>
     <sys:String x:Key="LOCSaveManagerConfirmBackup">备份前显示确认对话框</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCount">最大备份数量:</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCountTooltip">每个游戏的最大备份数量，0 表示不限制</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCountHint">(每个游戏，0=不限制)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCount">自动备份最大数量:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">每个游戏的自动备份最大数量，超过此数量会自动删除最旧的备份，0 表示不限制</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(每个游戏，0=不限制，超出自动删除旧备份)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">提示：存档备份将保存为标准ZIP压缩包格式。</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupNote">自动备份 - 游戏运行 {0} 分钟后</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[存档管理] 已自动备份「{0}」- {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[存档管理] 「{0}」自动备份失败：{1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupTitle">存档管理 - 备份完成</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupMessage">「{0}」已备份：{1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupErrorTitle">存档管理 - 备份失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupErrorMessage">「{0}」备份失败：{1}</sys:String>
 
     <!-- Messages & Dialogs (C#) -->
     <sys:String x:Key="LOCSaveManagerMsgSelectOneGame">请只选择一个游戏进行存档管理。</sys:String>
@@ -56,7 +63,7 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">快速备份</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">快速还原（最近备份）</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">关于 Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.0
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.2
 
 一个用于管理游戏存档备份的Playnite插件。
 
@@ -93,10 +100,12 @@
     <sys:String x:Key="LOCSaveManagerMsgExportSuccess">配置已成功导出到:&#x0a;{0}</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogImportBackup">备份文件 (*.zip)|*.zip</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgImportBackupSuccess">备份导入成功！&#x0a;文件名: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportMultipleBackupsSuccess">成功导入了 {0} 个备份文件！</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfigSaved">存档路径配置已保存。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfigRequired">请先配置存档路径。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmRestoreNamed">确定要还原备份 "{0}" 吗？&#x0a;&#x0a;这将覆盖当前的存档文件！&#x0a;&#x0a;建议先创建当前存档的备份。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmDelete">确定要删除备份 "{0}" 吗？&#x0a;&#x0a;此操作无法撤销！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteMultiple">确定要删除选中的 {0} 个备份吗？&#x0a;&#x0a;此操作无法撤销！</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleConfirmDelete">确认删除</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDeleteSuccess">备份已删除。</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleEditNote">修改备注</sys:String>

@@ -45,10 +45,17 @@
     <sys:String x:Key="LOCSaveManagerBrowse">Browse...</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackup">Auto backup when game stops</sys:String>
     <sys:String x:Key="LOCSaveManagerConfirmBackup">Show confirmation before backup</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCount">Max backup count:</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCountTooltip">Max backups per game, 0 for unlimited</sys:String>
-    <sys:String x:Key="LOCSaveManagerMaxBackupCountHint">(per game, 0=unlimited)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCount">Max auto-backup count:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">Max auto-backups per game. Old backups will be auto-deleted when exceeded. 0 for unlimited.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(per game, 0=unlimited, auto-deletes oldest)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupNote">Auto backup after {0} minutes of gameplay</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[SaveManager] Auto backup created for "{0}" - {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[SaveManager] Auto backup failed for "{0}": {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupTitle">Save Manager - Backup Complete</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupMessage">"{0}" backup created: {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupErrorTitle">Save Manager - Backup Failed</sys:String>
+    <sys:String x:Key="LOCSaveManagerToastBackupErrorMessage">Failed to backup "{0}": {1}</sys:String>
 
     <!-- Messages & Dialogs (C#) -->
     <sys:String x:Key="LOCSaveManagerMsgSelectOneGame">Please select only one game for save management.</sys:String>
@@ -56,7 +63,7 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">Quick Backup</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">Quick Restore (Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">About Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.0
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.2
 
 A Playnite plugin for managing game save backups.
 
@@ -93,10 +100,12 @@ Usage: Right-click game -> Save Manager -> Save Management</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgExportSuccess">Configuration successfully exported to:&#x0a;{0}</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogImportBackup">Backup File (*.zip)|*.zip</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgImportBackupSuccess">Backup imported successfully!&#x0a;Filename: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportMultipleBackupsSuccess">Successfully imported {0} backup files!</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfigSaved">Save path configuration saved.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfigRequired">Please configure save paths first.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmRestoreNamed">Are you sure you want to restore backup "{0}"?&#x0a;&#x0a;This will overwrite current save files!&#x0a;&#x0a;It is recommended to backup your current saves first.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmDelete">Are you sure you want to delete backup "{0}"?&#x0a;&#x0a;This action cannot be undone!</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteMultiple">Are you sure you want to delete {0} selected backups?&#x0a;&#x0a;This action cannot be undone!</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleConfirmDelete">Confirm Delete</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDeleteSuccess">Backup deleted.</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleEditNote">Edit Note</sys:String>

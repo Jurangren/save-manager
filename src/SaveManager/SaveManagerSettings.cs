@@ -48,9 +48,9 @@ namespace SaveManager
         }
 
         /// <summary>
-        /// 最大备份数量
+        /// 自动备份最大数量（0 表示无限制，超过此数量会自动删除最旧的备份）
         /// </summary>
-        public int MaxBackupCount
+        public int MaxAutoBackupCount
         {
             get => maxBackupCount;
             set => SetValue(ref maxBackupCount, value);
@@ -94,7 +94,7 @@ namespace SaveManager
                 CustomBackupPath = savedSettings.CustomBackupPath;
                 AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
                 ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
-                MaxBackupCount = savedSettings.MaxBackupCount;
+                MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
             }
         }
 
@@ -113,7 +113,7 @@ namespace SaveManager
             editingCustomBackupPath = CustomBackupPath;
             editingAutoBackupOnGameExit = AutoBackupOnGameExit;
             editingConfirmBeforeBackup = ConfirmBeforeBackup;
-            editingMaxBackupCount = MaxBackupCount;
+            editingMaxBackupCount = MaxAutoBackupCount;
         }
 
         public void CancelEdit()
@@ -122,7 +122,7 @@ namespace SaveManager
             CustomBackupPath = editingCustomBackupPath;
             AutoBackupOnGameExit = editingAutoBackupOnGameExit;
             ConfirmBeforeBackup = editingConfirmBeforeBackup;
-            MaxBackupCount = editingMaxBackupCount;
+            MaxAutoBackupCount = editingMaxBackupCount;
         }
 
         public void EndEdit()
@@ -141,10 +141,10 @@ namespace SaveManager
                 errors.Add("自定义备份目录不存在，请选择有效的目录。");
             }
 
-            // 验证最大备份数量
-            if (MaxBackupCount < 0)
+            // 验证自动备份最大数量
+            if (MaxAutoBackupCount < 0)
             {
-                errors.Add("最大备份数量不能为负数。");
+                errors.Add("自动备份最大数量不能为负数。");
             }
 
             return errors.Count == 0;
