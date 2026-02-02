@@ -21,6 +21,16 @@
     <sys:String x:Key="LOCSaveManagerExportConfigTooltip">Export current path config</sys:String>
     <sys:String x:Key="LOCSaveManagerSaveConfig">Save Config</sys:String>
 
+    <!-- Restore Exclude Paths -->
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">🚫 Restore Exclusions</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitleExpanded">🚫 Restore Exclusions</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeHint">Files/folders below will be preserved and not overwritten during restore. Typically used for game configuration files.</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeEmpty">No exclusions</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolder">Add Folder</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFile">Add File</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolderTooltip">Add folder to exclude from restore</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFileTooltip">Add file to exclude from restore</sys:String>
+
     <!-- Backup Management -->
     <sys:String x:Key="LOCSaveManagerBackupManagementTitle">Backup Management</sys:String>
     <sys:String x:Key="LOCSaveManagerCreateNewBackup">Create New Backup</sys:String>
@@ -49,6 +59,13 @@
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">Max auto-backups per game. Old backups will be auto-deleted when exceeded. 0 for unlimited.</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(per game, 0=unlimited, auto-deletes oldest)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExport">Global Export</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExportTooltip">Export all configurations and backup data to a ZIP file</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImport">Global Import</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportTooltip">Import all configurations and backup data from a ZIP file</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolder">Open Data Folder</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">Open the plugin data storage directory</sys:String>
+    <sys:String x:Key="LOCSaveManagerDataManagement">Data Management</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">Auto backup after {0} minutes of gameplay</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[SaveManager] Auto backup created for "{0}" - {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[SaveManager] Auto backup failed for "{0}": {1}</sys:String>
@@ -63,13 +80,15 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">Quick Backup</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">Quick Restore (Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">About Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.3
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.4
 
 A Playnite plugin for managing game save backups.
 
 Features:
 • Configure save paths (folders and files) for each game
 • Create save backups (ZIP format)
+• Auto-backup on game exit with rotation (keep specified count)
+• Restore exclusions: keep specific config files/folders during restore
 • Add notes to backups
 • One-click restore to any backup
 
@@ -93,7 +112,7 @@ Usage: Right-click game -> Save Manager -> Save Management</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogImportConfig">Configuration File (*.json)|*.json</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgImportConfirm">Imported {0} paths from file.&#x0a;This will overwrite current configuration. Continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleConfirmImport">Confirm Import</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">Configuration imported successfully. Please remember to save.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">Configuration imported successfully.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgInvalidConfig">Invalid configuration file format.</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogExportConfig">Export Save Path Config</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgExportNoPaths">No paths configured to export.</sys:String>

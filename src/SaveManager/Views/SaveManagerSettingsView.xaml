@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d" 
-             d:DesignHeight="300" d:DesignWidth="500">
+             d:DesignHeight="400" d:DesignWidth="500">
     <UserControl.Resources>
         <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}" />
     </UserControl.Resources>
@@ -25,5 +25,38 @@
         
         <TextBlock Text="{DynamicResource LOCSaveManagerZipWarning}" 
                    Opacity="0.6" Margin="0,30,0,0" FontStyle="Italic"/>
+        
+        <!-- 分隔线 -->
+        <Separator Margin="0,30,0,15" Background="{DynamicResource NormalBorderBrush}"/>
+        
+        <!-- 数据管理区域 -->
+        <TextBlock Text="{DynamicResource LOCSaveManagerDataManagement}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+        
+        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+            <Button Command="{Binding GlobalExportCommand}" 
+                    ToolTip="{DynamicResource LOCSaveManagerGlobalExportTooltip}"
+                    Padding="10,6" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📤" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerGlobalExport}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding GlobalImportCommand}" 
+                    ToolTip="{DynamicResource LOCSaveManagerGlobalImportTooltip}"
+                    Padding="10,6" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📥" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerGlobalImport}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding OpenDataFolderCommand}" 
+                    ToolTip="{DynamicResource LOCSaveManagerOpenDataFolderTooltip}"
+                    Padding="10,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📁" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerOpenDataFolder}"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
     </StackPanel>
 </UserControl>

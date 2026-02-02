@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Input;
 using Playnite.SDK;
 using Playnite.SDK.Data;
-using SaveManager.ViewModels;
 
 namespace SaveManager
 {
@@ -79,6 +79,12 @@ namespace SaveManager
         // 命令
         [DontSerialize]
         public ICommand BrowseBackupPathCommand { get; }
+        [DontSerialize]
+        public ICommand GlobalExportCommand { get; }
+        [DontSerialize]
+        public ICommand GlobalImportCommand { get; }
+        [DontSerialize]
+        public ICommand OpenDataFolderCommand { get; }
 
         /// <summary>
         /// 无参构造函数（序列化需要）
@@ -96,6 +102,9 @@ namespace SaveManager
 
             // 初始化命令
             BrowseBackupPathCommand = new Playnite.SDK.RelayCommand(() => BrowseBackupPath());
+            GlobalExportCommand = new Playnite.SDK.RelayCommand(() => GlobalExport());
+            GlobalImportCommand = new Playnite.SDK.RelayCommand(() => GlobalImport());
+            OpenDataFolderCommand = new Playnite.SDK.RelayCommand(() => OpenDataFolder());
 
             // 加载保存的设置（使用自定义方法）
             LoadSettings();
@@ -159,6 +168,44 @@ namespace SaveManager
             if (!string.IsNullOrEmpty(path))
             {
                 CustomBackupPath = path;
+            }
+        }
+
+        /// <summary>
+        /// 全局导出（调用插件主类方法）
+        /// </summary>
+        private void GlobalExport()
+        {
+            plugin?.ExportGlobalConfig();
+        }
+
+        /// <summary>
+        /// 全局导入（调用插件主类方法）
+        /// </summary>
+        private void GlobalImport()
+        {
+            plugin?.ImportGlobalConfig();
+        }
+
+        /// <summary>
+        /// 打开数据文件夹
+        /// </summary>
+        private void OpenDataFolder()
+        {
+            try
+            {
+                var dataPath = plugin.GetPluginUserDataPath();
+                if (!Directory.Exists(dataPath))
+                {
+                    Directory.CreateDirectory(dataPath);
+                }
+
+                Process.Start("explorer.exe", dataPath);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to open data folder");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }
 

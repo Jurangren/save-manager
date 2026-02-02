@@ -342,7 +342,11 @@ namespace SaveManager
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    backupService.RestoreBackup(latestBackup);
+                    // 获取排除项配置
+                    var config = backupService.GetGameConfig(game.Id);
+                    var excludePaths = config?.RestoreExcludePaths;
+
+                    backupService.RestoreBackup(latestBackup, excludePaths);
                     PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
@@ -369,7 +373,11 @@ namespace SaveManager
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    backupService.RestoreBackup(backup);
+                    // 获取排除项配置
+                    var config = backupService.GetGameConfig(game.Id);
+                    var excludePaths = config?.RestoreExcludePaths;
+
+                    backupService.RestoreBackup(backup, excludePaths);
                     PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
@@ -463,7 +471,7 @@ namespace SaveManager
         /// <summary>
         /// 导出全局配置
         /// </summary>
-        private void ExportGlobalConfig()
+        public void ExportGlobalConfig()
         {
             try
             {
@@ -504,7 +512,7 @@ namespace SaveManager
         /// <summary>
         /// 导入全局配置
         /// </summary>
-        private void ImportGlobalConfig()
+        public void ImportGlobalConfig()
         {
             try
             {

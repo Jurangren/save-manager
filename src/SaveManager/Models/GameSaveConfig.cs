@@ -24,6 +24,11 @@ namespace SaveManager.Models
         public List<SavePath> SavePaths { get; set; } = new List<SavePath>();
 
         /// <summary>
+        /// 还原排除路径列表（还原时这些路径将被保留不被覆盖）
+        /// </summary>
+        public List<SavePath> RestoreExcludePaths { get; set; } = new List<SavePath>();
+
+        /// <summary>
         /// 创建时间
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.Now;

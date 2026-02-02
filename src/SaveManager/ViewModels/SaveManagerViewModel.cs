@@ -85,6 +85,21 @@ namespace SaveManager.ViewModels
             set { _hasSavePaths = value; OnPropertyChanged(); }
         }
 
+        // 还原排除项
+        private ObservableCollection<SavePathItem> _restoreExcludePaths;
+        public ObservableCollection<SavePathItem> RestoreExcludePaths
+        {
+            get => _restoreExcludePaths;
+            set { _restoreExcludePaths = value; OnPropertyChanged(); }
+        }
+
+        private bool _isExcludeExpanded = false;
+        public bool IsExcludeExpanded
+        {
+            get => _isExcludeExpanded;
+            set { _isExcludeExpanded = value; OnPropertyChanged(); }
+        }
+
         // 命令
         public ICommand AddFolderCommand { get; }
         public ICommand AddFileCommand { get; }
@@ -99,6 +114,12 @@ namespace SaveManager.ViewModels
         public ICommand ExportConfigCommand { get; }
         public ICommand ImportBackupCommand { get; }
 
+        // 还原排除项命令
+        public ICommand AddExcludeFolderCommand { get; }
+        public ICommand AddExcludeFileCommand { get; }
+        public ICommand RemoveExcludePathCommand { get; }
+        public ICommand ToggleExcludeExpandedCommand { get; }
+
         public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService)
         {
             this.game = game;
@@ -106,6 +127,7 @@ namespace SaveManager.ViewModels
             this.backupService = backupService;
 
             SavePaths = new ObservableCollection<SavePathItem>();
+            RestoreExcludePaths = new ObservableCollection<SavePathItem>();
             Backups = new ObservableCollection<SaveBackup>();
             SelectedBackups = new ObservableCollection<SaveBackup>();
 
@@ -122,6 +144,12 @@ namespace SaveManager.ViewModels
             ImportConfigCommand = new RelayCommand(ImportConfig);
             ExportConfigCommand = new RelayCommand(ExportConfig);
             ImportBackupCommand = new RelayCommand(ImportBackup);
+
+            // 还原排除项命令
+            AddExcludeFolderCommand = new RelayCommand(AddExcludeFolder);
+            AddExcludeFileCommand = new RelayCommand(AddExcludeFile);
+            RemoveExcludePathCommand = new RelayCommand<SavePathItem>(RemoveExcludePath);
+            ToggleExcludeExpandedCommand = new RelayCommand(ToggleExcludeExpanded);
 
             // 加载数据
             LoadData();
@@ -140,6 +168,19 @@ namespace SaveManager.ViewModels
                         Path = path.Path,
                         IsDirectory = path.IsDirectory
                     });
+                }
+
+                // 加载还原排除项（兼容旧版本配置，可能没有此字段）
+                if (config.RestoreExcludePaths != null)
+                {
+                    foreach (var path in config.RestoreExcludePaths)
+                    {
+                        RestoreExcludePaths.Add(new SavePathItem
+                        {
+                            Path = path.Path,
+                            IsDirectory = path.IsDirectory
+                        });
+                    }
                 }
             }
 
@@ -285,6 +326,17 @@ namespace SaveManager.ViewModels
                         {
                             SavePaths.Add(new SavePathItem { Path = p.Path, IsDirectory = p.IsDirectory });
                         }
+
+                        // 导入还原排除项（兼容旧配置，可能没有此字段）
+                        RestoreExcludePaths.Clear();
+                        if (config.RestoreExcludePaths != null)
+                        {
+                            foreach (var p in config.RestoreExcludePaths)
+                            {
+                                RestoreExcludePaths.Add(new SavePathItem { Path = p.Path, IsDirectory = p.IsDirectory });
+                            }
+                        }
+
                         UpdateHasSavePaths();
                         SaveConfigSilent();
                         playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgImportSuccess"), "Save Manager");
@@ -327,12 +379,23 @@ namespace SaveManager.ViewModels
                     {
                         GameId = game.Id,
                         GameName = game.Name,
-                        SavePaths = new System.Collections.Generic.List<SavePath>()
+                        SavePaths = new System.Collections.Generic.List<SavePath>(),
+                        RestoreExcludePaths = new System.Collections.Generic.List<SavePath>()
                     };
 
                     foreach (var item in SavePaths)
                     {
                         config.SavePaths.Add(new SavePath
+                        {
+                            Path = item.Path,
+                            IsDirectory = item.IsDirectory
+                        });
+                    }
+
+                    // 导出还原排除项
+                    foreach (var item in RestoreExcludePaths)
+                    {
+                        config.RestoreExcludePaths.Add(new SavePath
                         {
                             Path = item.Path,
                             IsDirectory = item.IsDirectory
@@ -415,6 +478,113 @@ namespace SaveManager.ViewModels
             HasSavePaths = SavePaths.Count > 0;
         }
 
+        // 还原排除项相关方法
+        private void ToggleExcludeExpanded()
+        {
+            IsExcludeExpanded = !IsExcludeExpanded;
+        }
+
+        private void AddExcludeFolder()
+        {
+            try
+            {
+                var selectedPath = playniteApi.Dialogs.SelectFolder();
+                
+                if (!string.IsNullOrEmpty(selectedPath))
+                {
+                    ProcessExcludePath(selectedPath, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        private void AddExcludeFile()
+        {
+            try
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = ResourceProvider.GetString("LOCSaveManagerDialogSelectFile"),
+                    Filter = "All files|*.*",
+                    Multiselect = true,
+                    CheckFileExists = true
+                };
+
+                // 尝试设置初始目录
+                if (!string.IsNullOrEmpty(game.InstallDirectory))
+                {
+                    var normalizedPath = game.InstallDirectory.Replace('/', '\\').TrimEnd('\\');
+                    if (Directory.Exists(normalizedPath))
+                    {
+                        dialog.InitialDirectory = normalizedPath;
+                    }
+                }
+
+                var window = playniteApi.Dialogs.GetCurrentAppWindow();
+                
+                if (dialog.ShowDialog(window) == true)
+                {
+                    foreach (var fileName in dialog.FileNames)
+                    {
+                        ProcessExcludePath(fileName, false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        private void ProcessExcludePath(string selectedPath, bool isDirectory)
+        {
+            // 自动判断路径类型
+            bool useGameRelative = false;
+            
+            // 如果路径在游戏目录下，使用游戏相对路径
+            if (!string.IsNullOrEmpty(game.InstallDirectory))
+            {
+                var normalizedGameDir = Path.GetFullPath(game.InstallDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                var normalizedPath = Path.GetFullPath(selectedPath);
+                
+                useGameRelative = normalizedPath.StartsWith(normalizedGameDir, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // 转换路径
+            var finalPath = PathHelper.ConvertToStoragePath(selectedPath, game.InstallDirectory, useGameRelative);
+
+            // 查重
+            if (RestoreExcludePaths.Any(p => p.Path.Equals(finalPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgPathExists"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 添加
+            RestoreExcludePaths.Add(new SavePathItem
+            {
+                Path = finalPath,
+                IsDirectory = isDirectory
+            });
+            
+            // 自动保存配置
+            SaveConfigSilent();
+        }
+
+        private void RemoveExcludePath(SavePathItem item)
+        {
+            if (item != null)
+            {
+                RestoreExcludePaths.Remove(item);
+                
+                // 自动保存配置
+                SaveConfigSilent();
+            }
+        }
+
         private void SaveConfig()
         {
             SaveConfigSilent();
@@ -428,6 +598,11 @@ namespace SaveManager.ViewModels
                 GameId = game.Id,
                 GameName = game.Name,
                 SavePaths = SavePaths.Select(p => new SavePath
+                {
+                    Path = p.Path,
+                    IsDirectory = p.IsDirectory
+                }).ToList(),
+                RestoreExcludePaths = RestoreExcludePaths.Select(p => new SavePath
                 {
                     Path = p.Path,
                     IsDirectory = p.IsDirectory
@@ -484,7 +659,14 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
-                    backupService.RestoreBackup(backup);
+                    // 构建排除项列表
+                    var excludePaths = RestoreExcludePaths.Select(p => new SavePath
+                    {
+                        Path = p.Path,
+                        IsDirectory = p.IsDirectory
+                    }).ToList();
+
+                    backupService.RestoreBackup(backup, excludePaths.Count > 0 ? excludePaths : null);
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)

@@ -21,6 +21,16 @@
     <sys:String x:Key="LOCSaveManagerExportConfigTooltip">导出当前路径配置</sys:String>
     <sys:String x:Key="LOCSaveManagerSaveConfig">保存路径配置</sys:String>
 
+    <!-- Restore Exclude Paths -->
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">🚫 还原排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitleExpanded">🚫 还原排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeHint">还原备份时，以下文件/文件夹将保持当前状态不被覆盖。通常适用于游戏配置等文件。</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeEmpty">无排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolder">添加文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFile">添加文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolderTooltip">添加要排除的文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFileTooltip">添加要排除的文件</sys:String>
+
     <!-- Backup Management -->
     <sys:String x:Key="LOCSaveManagerBackupManagementTitle">💾 备份管理</sys:String>
     <sys:String x:Key="LOCSaveManagerCreateNewBackup">创建新备份</sys:String>
@@ -49,6 +59,13 @@
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">每个游戏的自动备份最大数量，超过此数量会自动删除最旧的备份，0 表示不限制</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(每个游戏，0=不限制，超出自动删除旧备份)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">提示：存档备份将保存为标准ZIP压缩包格式。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExport">全局导出</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExportTooltip">导出所有配置和备份数据到ZIP文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImport">全局导入</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportTooltip">从ZIP文件导入所有配置和备份数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolder">打开数据文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">打开插件数据存储目录</sys:String>
+    <sys:String x:Key="LOCSaveManagerDataManagement">数据管理</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">自动备份 - 游戏运行 {0} 分钟后</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[存档管理] 已自动备份「{0}」- {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[存档管理] 「{0}」自动备份失败：{1}</sys:String>
@@ -63,13 +80,15 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">快速备份</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">快速还原（最近备份）</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">关于 Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.3
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.4
 
 一个用于管理游戏存档备份的Playnite插件。
 
 功能：
 • 为每个游戏配置存档路径（支持文件夹和文件）
 • 创建存档备份（ZIP压缩格式）
+• 游戏结束时自动备份，保留指定数量的旧备份
+• 还原排除项：还原时保持特定的配置文件或文件夹不被覆盖
 • 为备份添加备注说明
 • 一键还原到任意备份
 
@@ -93,7 +112,7 @@
     <sys:String x:Key="LOCSaveManagerDialogImportConfig">配置文件 (*.json)|*.json</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgImportConfirm">从文件导导入了 {0} 个路径。&#x0a;这将覆盖当前配置，是否继续？</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleConfirmImport">确认导入</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">配置导入成功。请记得点击保存。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">配置导入成功。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgInvalidConfig">无效的配置文件格式。</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogExportConfig">导出存档路径配置</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgExportNoPaths">当前没有配置任何路径，无法导出。</sys:String>

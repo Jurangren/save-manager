@@ -276,7 +276,9 @@ namespace SaveManager.Services
         /// <summary>
         /// 还原备份
         /// </summary>
-        public void RestoreBackup(SaveBackup backup)
+        /// <param name="backup">备份对象</param>
+        /// <param name="excludePaths">还原排除项（可选），这些路径将保持当前状态不被覆盖</param>
+        public void RestoreBackup(SaveBackup backup, List<SavePath> excludePaths = null)
         {
             if (!File.Exists(backup.BackupFilePath))
             {
@@ -285,6 +287,17 @@ namespace SaveManager.Services
 
             var game = playniteApi.Database.Games.Get(backup.GameId);
             var installDir = game?.InstallDirectory;
+
+            // 预处理排除路径列表（解析变量）
+            var resolvedExcludePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (excludePaths != null)
+            {
+                foreach (var excludePath in excludePaths)
+                {
+                    var resolvedPath = PathHelper.ResolvePath(excludePath.Path, installDir);
+                    resolvedExcludePaths.Add(resolvedPath);
+                }
+            }
 
             using (var zip = ZipFile.OpenRead(backup.BackupFilePath))
             {
@@ -321,14 +334,17 @@ namespace SaveManager.Services
 
                     if (mapping.IsDirectory)
                     {
-                        // 清空目标目录（如果存在）
+                        // 清空目标目录（如果存在），但跳过排除项
                         if (Directory.Exists(originalPath))
                         {
-                            // 备份当前存档（可选，这里直接覆盖）
-                            // 删除目录内容
+                            // 删除目录内容，但排除指定的文件和文件夹
                             foreach (var file in Directory.GetFiles(originalPath, "*", SearchOption.AllDirectories))
                             {
-                                File.Delete(file);
+                                // 检查是否在排除列表中
+                                if (!ShouldExcludePath(file, resolvedExcludePaths))
+                                {
+                                    File.Delete(file);
+                                }
                             }
                         }
                         else
@@ -346,6 +362,13 @@ namespace SaveManager.Services
                                 var relativePath = entry.FullName.Substring(mapping.EntryName.Length + 1);
                                 var targetPath = Path.Combine(originalPath, relativePath.Replace("/", "\\"));
                                 
+                                // 检查目标路径是否在排除列表中
+                                if (ShouldExcludePath(targetPath, resolvedExcludePaths))
+                                {
+                                    logger.Info($"Skipping excluded path during restore: {targetPath}");
+                                    continue;
+                                }
+
                                 // 确保目录存在
                                 var targetDir = Path.GetDirectoryName(targetPath);
                                 if (!Directory.Exists(targetDir))
@@ -359,7 +382,13 @@ namespace SaveManager.Services
                     }
                     else
                     {
-                        // 还原单个文件
+                        // 还原单个文件，但检查排除列表
+                        if (ShouldExcludePath(originalPath, resolvedExcludePaths))
+                        {
+                            logger.Info($"Skipping excluded file during restore: {originalPath}");
+                            continue;
+                        }
+
                         var entry = zip.GetEntry(mapping.EntryName);
                         if (entry != null)
                         {
@@ -375,6 +404,35 @@ namespace SaveManager.Services
             }
 
             logger.Info($"Restored backup: {backup.BackupFilePath}");
+        }
+
+        /// <summary>
+        /// 检查路径是否应该被排除
+        /// </summary>
+        /// <param name="path">要检查的路径</param>
+        /// <param name="excludePaths">排除路径集合</param>
+        /// <returns>如果应该排除返回 true</returns>
+        private bool ShouldExcludePath(string path, HashSet<string> excludePaths)
+        {
+            if (excludePaths == null || excludePaths.Count == 0)
+                return false;
+
+            var normalizedPath = Path.GetFullPath(path);
+
+            foreach (var excludePath in excludePaths)
+            {
+                var normalizedExclude = Path.GetFullPath(excludePath);
+
+                // 精确匹配
+                if (normalizedPath.Equals(normalizedExclude, StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                // 检查是否在排除的文件夹下
+                if (normalizedPath.StartsWith(normalizedExclude.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
