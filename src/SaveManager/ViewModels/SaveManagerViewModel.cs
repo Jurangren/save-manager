@@ -548,6 +548,16 @@ namespace SaveManager.ViewModels
             var backup = SelectedBackups.FirstOrDefault();
             if (backup == null) return;
 
+            // 如果是自动备份，先弹出提示
+            if (backup.IsAutoBackup)
+            {
+                playniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgAutoBackupNoteWarning"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleAutoBackupNoteWarning"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
             var result = playniteApi.Dialogs.SelectString(
                 ResourceProvider.GetString("LOCSaveManagerMsgEnterNote"),
                 ResourceProvider.GetString("LOCSaveManagerTitleEditNote"),
@@ -564,6 +574,13 @@ namespace SaveManager.ViewModels
                     
                     // 更新对象属性（会自动触发 UI 更新，因为 SaveBackup 实现了 INotifyPropertyChanged）
                     backup.Description = newDescription;
+                    
+                    // 如果是自动备份，UI 也需要更新 IsAutoBackup 状态
+                    // （UpdateBackupDescription 已经将其设为 false）
+                    if (backup.IsAutoBackup)
+                    {
+                        backup.IsAutoBackup = false;
+                    }
                     
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }

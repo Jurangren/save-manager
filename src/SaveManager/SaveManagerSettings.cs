@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows.Input;
 using Playnite.SDK;
 using Playnite.SDK.Data;
@@ -9,10 +10,19 @@ namespace SaveManager
 {
     /// <summary>
     /// 插件设置类
+    /// 注意：使用自定义的 settings.json 文件保存设置，
+    /// 而不是 Playnite SDK 的 SavePluginSettings 方法，
+    /// 因为后者会覆盖 config.json 导致游戏配置丢失。
     /// </summary>
     public class SaveManagerSettings : ObservableObject, ISettings
     {
         private readonly SaveManagerPlugin plugin;
+        private static readonly ILogger logger = LogManager.GetLogger();
+
+        /// <summary>
+        /// 设置文件名（使用独立的文件名，避免与 config.json 冲突）
+        /// </summary>
+        private const string SettingsFileName = "settings.json";
 
         // 备份设置
         private string customBackupPath = string.Empty;
@@ -87,14 +97,59 @@ namespace SaveManager
             // 初始化命令
             BrowseBackupPathCommand = new Playnite.SDK.RelayCommand(() => BrowseBackupPath());
 
-            // 加载保存的设置
-            var savedSettings = plugin.LoadPluginSettings<SaveManagerSettings>();
-            if (savedSettings != null)
+            // 加载保存的设置（使用自定义方法）
+            LoadSettings();
+        }
+
+        /// <summary>
+        /// 获取设置文件的完整路径
+        /// </summary>
+        private string GetSettingsFilePath()
+        {
+            return Path.Combine(plugin.GetPluginUserDataPath(), SettingsFileName);
+        }
+
+        /// <summary>
+        /// 从自定义文件加载设置
+        /// </summary>
+        private void LoadSettings()
+        {
+            try
             {
-                CustomBackupPath = savedSettings.CustomBackupPath;
-                AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
-                ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
-                MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
+                var settingsPath = GetSettingsFilePath();
+                if (File.Exists(settingsPath))
+                {
+                    var json = File.ReadAllText(settingsPath);
+                    var savedSettings = Serialization.FromJson<SaveManagerSettings>(json);
+                    if (savedSettings != null)
+                    {
+                        CustomBackupPath = savedSettings.CustomBackupPath ?? string.Empty;
+                        AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
+                        ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
+                        MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to load plugin settings from settings.json");
+            }
+        }
+
+        /// <summary>
+        /// 保存设置到自定义文件
+        /// </summary>
+        private void SaveSettings()
+        {
+            try
+            {
+                var settingsPath = GetSettingsFilePath();
+                var json = Serialization.ToJson(this, true);
+                File.WriteAllText(settingsPath, json);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to save plugin settings to settings.json");
             }
         }
 
@@ -127,8 +182,8 @@ namespace SaveManager
 
         public void EndEdit()
         {
-            // 保存设置
-            plugin?.SavePluginSettings(this);
+            // 保存设置到自定义文件（不使用 Playnite SDK 的 SavePluginSettings）
+            SaveSettings();
         }
 
         public bool VerifySettings(out List<string> errors)

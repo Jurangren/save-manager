@@ -63,7 +63,7 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">快速备份</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">快速还原（最近备份）</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">关于 Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.2
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.3
 
 一个用于管理游戏存档备份的Playnite插件。
 
@@ -111,6 +111,8 @@
     <sys:String x:Key="LOCSaveManagerTitleEditNote">修改备注</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgEnterNote">请输入新的备注信息：</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgNoteSuccess">备注修改成功。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgAutoBackupNoteWarning">修改备注后，该备份将被转换为手动备份，不再计入自动备份数量限制，也不会被自动清理删除。</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleAutoBackupNoteWarning">提示</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgNoBackupsFound">该游戏暂无备份文件。</sys:String>
 
     <!-- Menu Items -->

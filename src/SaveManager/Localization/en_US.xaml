@@ -63,7 +63,7 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">Quick Backup</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">Quick Restore (Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">About Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.2
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.3
 
 A Playnite plugin for managing game save backups.
 
@@ -111,6 +111,8 @@ Usage: Right-click game -> Save Manager -> Save Management</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleEditNote">Edit Note</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgEnterNote">Enter new note:</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgNoteSuccess">Note updated successfully.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgAutoBackupNoteWarning">After editing the note, this backup will be converted to a manual backup. It will no longer count towards the auto-backup limit and won't be automatically deleted.</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleAutoBackupNoteWarning">Notice</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgNoBackupsFound">No backups found for this game.</sys:String>
 
     <!-- Menu Items -->
