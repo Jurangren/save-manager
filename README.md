@@ -9,9 +9,10 @@ A powerful **save backup plugin** designed for Playnite game library. Easily bac
 - **⚡ Smart Path Detection**: Automatically detects and adapts save paths when game directory moves
 - **📦 One-Click Backup**: Quick backup with optional notes (e.g., "Before Boss Fight", "Chapter 10 Complete")
 - **↩️ Safe Restore**: Restore saves to any previous state with one click
+- **🚫 Restore Exclusions**: Exclude specific files (e.g., global settings, read text logs, graphics settings) during restoration
 - **📂 Portable Design**: Backup files can move with game directory when using relative paths
 - **📤 Import/Export**: Import/export save path configurations and external ZIP backups
-- **🌍 Global Config**: Export/import all configurations for cross-machine backup
+- **🌍 Global Management**: Export/import all configurations and backups for easy migration
 - **🧹 Auto Cleanup**: Automatically removes empty folders when deleting the last backup
 
 ## 📸 Screenshots
@@ -47,11 +48,20 @@ A powerful **save backup plugin** designed for Playnite game library. Easily bac
 Or simply use the context menu:
 - Right-click game → **Save Manager** → **Restore Backup** → Select from up to 9 recent backups
 
-### 4. Advanced Features
+### 4. Restore Exclusions (Advanced)
+
+If you wish to **keep** certain local settings when restoring a save (e.g., resolution, key bindings, Visual Novel "read text" flags, global progress files):
+
+1. Find the **"🚫 Restore Exclusions"** section at the bottom left of the manager interface
+2. Click **"📁 Add Folder"** or **"📄 Add File"**
+3. Select the files you want to protect (e.g., `config.ini`, `global.dat`, `system.sav`)
+4. Any subsequent restoration will preserve these files, ensuring your current settings are not overwritten by the backup.
+
+### 5. Other Features
 
 - **Edit Notes**: Click **"✏️"** button to edit backup description
 - **Import/Export Config**: Use **"📥/📤"** buttons to share configurations  
-- **Global Backup**: Use **Extensions Menu** → **SaveManager** → **Export/Import Global Config** to backup all game configurations
+- **Global Management**: Go to **Playnite Settings** → **Extensions** → **Save Manager** to export/import all data or open the data folder
 
 ## 🛠️ Installation
 
@@ -80,16 +90,16 @@ Go to **Playnite Settings** → **Extensions** → **Save Manager**:
 
 - **Custom Backup Directory**: Set a custom location for backups (default: plugin data folder)
 - **Auto Backup**: Automatically create backup when game stops
-- **Confirm Before Backup**: Show confirmation dialog before backing up
 - **Max Backup Count**: Maximum backups per game (0 = unlimited)
+- **Data Management**: Export/import full ZIP packages containing both configs and backup files
 
 ## 📁 File Structure
 
 ```
 %AppData%\Playnite\ExtensionsData\SaveManager\
-├── Configs\          # Game save path configurations
-│   └── {GameId}.json
-└── Backups\          # Save backups (ZIP files)
+├── config.json       # All game save path configurations and backup records
+├── settings.json     # Plugin global settings (auto-backup, etc.)
+└── Backups\          # Backup data storage
     └── {GameId}\
         └── Backup_YYYYMMDD_HHMMSS.zip
 ```
