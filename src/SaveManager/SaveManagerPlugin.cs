@@ -198,6 +198,14 @@ namespace SaveManager
                 Action = (menuArgs) => ImportGlobalConfig()
             };
 
+            // 游戏匹配
+            yield return new MainMenuItem
+            {
+                Description = ResourceProvider.GetString("LOCSaveManagerGameMatching"),
+                MenuSection = menuSection,
+                Action = (menuArgs) => OpenGameMatchingWindow(fullMode: true)
+            };
+
             // 打开备份文件夹
             yield return new MainMenuItem
             {
@@ -553,15 +561,79 @@ namespace SaveManager
                     System.IO.Directory.Delete(backupPath, true);
                 }
 
+                // 重新加载 BackupService 以读取新数据
+                backupService = new BackupService(dataPath, logger, PlayniteApi);
+
                 PlayniteApi.Dialogs.ShowMessage(
                     ResourceProvider.GetString("LOCSaveManagerGlobalImportSuccess"),
                     "Save Manager",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
+
+                // 导入成功后，自动弹出游戏匹配向导（缩减版，只显示未匹配的）
+                var configs = backupService.GetAllGameConfigs();
+                if (configs.Count > 0)
+                {
+                    var matchResult = PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerGameMatchingPrompt"),
+                        "Save Manager",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (matchResult == MessageBoxResult.Yes)
+                    {
+                        OpenGameMatchingWindow(fullMode: false);
+                    }
+                }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to import global config");
+                PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 打开游戏匹配窗口
+        /// </summary>
+        /// <param name="fullMode">是否为完整模式（显示所有配置）</param>
+        public void OpenGameMatchingWindow(bool fullMode)
+        {
+            try
+            {
+                var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
+                {
+                    ShowMinimizeButton = false,
+                    ShowMaximizeButton = false
+                });
+
+                window.Width = 750;
+                window.Height = 550;
+                window.Title = fullMode 
+                    ? ResourceProvider.GetString("LOCSaveManagerGameMatchingTitleFull")
+                    : ResourceProvider.GetString("LOCSaveManagerGameMatchingTitleSimple");
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
+
+                var viewModel = new GameMatchingViewModel(PlayniteApi, backupService, fullMode);
+                var view = new GameMatchingView
+                {
+                    DataContext = viewModel
+                };
+
+                // 处理关闭事件
+                viewModel.RequestClose += (result) =>
+                {
+                    window.DialogResult = result;
+                    window.Close();
+                };
+
+                window.Content = view;
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to open game matching window");
                 PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
         }

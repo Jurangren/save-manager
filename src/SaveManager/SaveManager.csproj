@@ -63,6 +63,7 @@
       <DependentUpon>SaveManagerSettingsView.xaml</DependentUpon>
     </Compile>
     <Compile Include="ViewModels\SaveManagerViewModel.cs" />
+    <Compile Include="ViewModels\GameMatchingViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -74,6 +75,15 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Views\GameMatchingView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Views\GameMatchingView.xaml.cs">
+      <DependentUpon>GameMatchingView.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="PlayniteSDK">

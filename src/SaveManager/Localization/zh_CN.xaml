@@ -155,4 +155,26 @@
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">导入全局配置</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">全局配置导入成功！&#x0a;&#x0a;请重启Playnite以使更改生效。</sys:String>
 
+    <!-- 跨设备管理 -->
+    <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">跨设备管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatching">游戏关联</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTooltip">管理跨设备同步的游戏关联关系</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingPrompt">导入完成。是否要将导入的配置与当前设备上的游戏进行关联？</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">游戏关联 - 完整视图</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">游戏关联</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">管理所有游戏配置及其关联状态。您可以修改已有的关联关系。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">部分导入的配置需要与当前设备上的游戏进行关联。请为每个配置选择对应的游戏。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColStatus">状态</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColMatch">关联游戏</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingClearMatch">清除关联</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfig">删除配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigTooltip">永久删除该游戏的所有配置和备份数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigConfirm">确定要删除“{0}”的配置吗？&#x0a;&#x0a;警告：此操作不可逆！&#x0a;将永久删除：&#x0a;1. 存档路径配置&#x0a;2. 所有已创建的备份文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingAutoMatch">尝试自动匹配未关联游戏</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingStatus">共 {0} 个配置，{1} 个未关联</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">成功更新了 {0} 个游戏的关联关系。</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnSave">保存</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnCancel">取消</sys:String>
+
 </ResourceDictionary>

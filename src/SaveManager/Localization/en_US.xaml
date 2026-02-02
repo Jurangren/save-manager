@@ -155,4 +155,23 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">Import Global Config</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;Please restart Playnite for changes to take effect.</sys:String>
 
+    <!-- Cross-Device Management -->
+    <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">Cross-Device Management</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatching">Game Matching</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTooltip">Manage game matching for cross-device sync</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingPrompt">Import completed. Would you like to match imported configurations with games on this device?</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">Game Matching - Full View</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">Game Matching</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">Manage all game configurations and their matching status. You can modify existing matches.</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">Some imported configurations need to be matched with games on this device. Please select the corresponding game for each configuration.</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">Configuration</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColStatus">Status</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColMatch">Match Game</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingClearMatch">Clear Match</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingAutoMatch">Auto Match</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingStatus">Total {0} configurations, {1} unmatched</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">Successfully updated {0} game matchings.</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnSave">Save</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnCancel">Cancel</sys:String>
+
 </ResourceDictionary>

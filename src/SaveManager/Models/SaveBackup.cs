@@ -22,7 +22,12 @@ namespace SaveManager.Models
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
         /// <summary>
-        /// 关联的游戏ID
+        /// 关联的配置ID（新架构，跨设备不变）
+        /// </summary>
+        public Guid ConfigId { get; set; }
+
+        /// <summary>
+        /// 关联的游戏ID（旧架构，保留用于兼容性和本地设备标识）
         /// </summary>
         public Guid GameId { get; set; }
 

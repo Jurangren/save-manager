@@ -377,11 +377,11 @@ namespace SaveManager.ViewModels
                 {
                     var config = new GameSaveConfig
                     {
-                        GameId = game.Id,
                         GameName = game.Name,
                         SavePaths = new System.Collections.Generic.List<SavePath>(),
                         RestoreExcludePaths = new System.Collections.Generic.List<SavePath>()
                     };
+                    config.GameIds.Add(game.Id);
 
                     foreach (var item in SavePaths)
                     {
@@ -593,21 +593,27 @@ namespace SaveManager.ViewModels
 
         private void SaveConfigSilent()
         {
-            var config = new GameSaveConfig
+            // 获取或创建配置（保留现有的 ConfigId 和 GameIds）
+            var existingConfig = backupService.GetGameConfig(game.Id);
+            var config = existingConfig ?? new GameSaveConfig();
+            
+            // 确保当前游戏 ID 在列表中
+            if (!config.GameIds.Contains(game.Id))
             {
-                GameId = game.Id,
-                GameName = game.Name,
-                SavePaths = SavePaths.Select(p => new SavePath
-                {
-                    Path = p.Path,
-                    IsDirectory = p.IsDirectory
-                }).ToList(),
-                RestoreExcludePaths = RestoreExcludePaths.Select(p => new SavePath
-                {
-                    Path = p.Path,
-                    IsDirectory = p.IsDirectory
-                }).ToList()
-            };
+                config.GameIds.Add(game.Id);
+            }
+            
+            config.GameName = game.Name;
+            config.SavePaths = SavePaths.Select(p => new SavePath
+            {
+                Path = p.Path,
+                IsDirectory = p.IsDirectory
+            }).ToList();
+            config.RestoreExcludePaths = RestoreExcludePaths.Select(p => new SavePath
+            {
+                Path = p.Path,
+                IsDirectory = p.IsDirectory
+            }).ToList();
 
             backupService.SaveGameConfig(config);
         }
@@ -775,7 +781,7 @@ namespace SaveManager.ViewModels
 
         private void OpenBackupFolder()
         {
-            var backupsPath = backupService.GetGameBackupDirectory(game.Id, game.Name);
+            var backupsPath = backupService.GetGameBackupDirectoryByGameId(game.Id, game.Name);
             
             if (!Directory.Exists(backupsPath))
             {

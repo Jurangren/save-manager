@@ -10,6 +10,7 @@ namespace SaveManager.Services
 {
     /// <summary>
     /// 备份服务 - 处理存档备份和恢复逻辑
+    /// 支持多设备：使用 ConfigId 作为配置主键，GameIds 列表关联多台设备的游戏
     /// </summary>
     public class BackupService
     {
@@ -19,13 +20,22 @@ namespace SaveManager.Services
         private readonly string backupsPath;
         private readonly string configPath;
 
+        // 使用 ConfigId 作为主键存储配置
         private Dictionary<Guid, GameSaveConfig> gameConfigs;
+        // 使用 ConfigId 作为主键存储备份
         private Dictionary<Guid, List<SaveBackup>> gameBackups;
+        // GameId -> ConfigId 的快速查找索引
+        private Dictionary<Guid, Guid> gameIdToConfigId;
 
         /// <summary>
         /// 获取备份文件夹路径
         /// </summary>
         public string BackupsPath => backupsPath;
+
+        /// <summary>
+        /// 数据版本号（用于迁移）
+        /// </summary>
+        private const int CurrentDataVersion = 2;
 
         public BackupService(string dataPath, ILogger logger, IPlayniteAPI playniteApi)
         {
@@ -43,29 +53,119 @@ namespace SaveManager.Services
         }
 
         /// <summary>
-        /// 加载保存的数据
+        /// 加载保存的数据（支持旧版本数据自动迁移）
         /// </summary>
         private void LoadData()
         {
             gameConfigs = new Dictionary<Guid, GameSaveConfig>();
             gameBackups = new Dictionary<Guid, List<SaveBackup>>();
+            gameIdToConfigId = new Dictionary<Guid, Guid>();
 
             try
             {
                 if (File.Exists(configPath))
                 {
                     var json = File.ReadAllText(configPath);
-                    var data = Playnite.SDK.Data.Serialization.FromJson<SaveDataModel>(json);
+                    var data = Playnite.SDK.Data.Serialization.FromJson<SaveDataModelV2>(json);
+                    
                     if (data != null)
                     {
-                        gameConfigs = data.GameConfigs ?? new Dictionary<Guid, GameSaveConfig>();
-                        gameBackups = data.GameBackups ?? new Dictionary<Guid, List<SaveBackup>>();
+                        // 检查是否需要迁移
+                        if (data.Version < CurrentDataVersion || data.Version == 0)
+                        {
+                            MigrateFromV1(json);
+                        }
+                        else
+                        {
+                            gameConfigs = data.GameConfigs ?? new Dictionary<Guid, GameSaveConfig>();
+                            gameBackups = data.GameBackups ?? new Dictionary<Guid, List<SaveBackup>>();
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to load save manager data");
+            }
+
+            // 重建 GameId -> ConfigId 索引
+            RebuildGameIdIndex();
+        }
+
+        /// <summary>
+        /// 从 V1 版本迁移数据
+        /// V1: 使用 GameId 作为主键
+        /// V2: 使用 ConfigId 作为主键
+        /// </summary>
+        private void MigrateFromV1(string json)
+        {
+            logger.Info("Migrating data from V1 to V2 format...");
+
+            try
+            {
+                var oldData = Playnite.SDK.Data.Serialization.FromJson<SaveDataModelV1>(json);
+                if (oldData == null) return;
+
+                var oldConfigs = oldData.GameConfigs ?? new Dictionary<Guid, GameSaveConfig>();
+                var oldBackups = oldData.GameBackups ?? new Dictionary<Guid, List<SaveBackup>>();
+
+                foreach (var kvp in oldConfigs)
+                {
+                    var oldGameId = kvp.Key;
+                    var config = kvp.Value;
+
+                    // 确保 ConfigId 存在
+                    if (config.ConfigId == Guid.Empty)
+                    {
+                        config.ConfigId = Guid.NewGuid();
+                    }
+
+                    // 确保 GameIds 列表包含原来的 GameId
+                    if (!config.GameIds.Contains(oldGameId))
+                    {
+                        config.GameIds.Insert(0, oldGameId);
+                    }
+
+                    // 使用 ConfigId 作为新的主键
+                    gameConfigs[config.ConfigId] = config;
+
+                    // 迁移备份数据
+                    if (oldBackups.TryGetValue(oldGameId, out var backups))
+                    {
+                        foreach (var backup in backups)
+                        {
+                            // 设置 ConfigId
+                            if (backup.ConfigId == Guid.Empty)
+                            {
+                                backup.ConfigId = config.ConfigId;
+                            }
+                        }
+                        gameBackups[config.ConfigId] = backups;
+                    }
+                }
+
+                // 保存迁移后的数据
+                SaveData();
+                logger.Info($"Migration completed. Migrated {gameConfigs.Count} configs and {gameBackups.Values.Sum(b => b.Count)} backups.");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to migrate data from V1");
+            }
+        }
+
+        /// <summary>
+        /// 重建 GameId -> ConfigId 索引
+        /// </summary>
+        private void RebuildGameIdIndex()
+        {
+            gameIdToConfigId.Clear();
+            foreach (var config in gameConfigs.Values)
+            {
+                foreach (var gameId in config.GameIds)
+                {
+                    gameIdToConfigId[gameId] = config.ConfigId;
+                }
             }
         }
 
@@ -76,8 +176,9 @@ namespace SaveManager.Services
         {
             try
             {
-                var data = new SaveDataModel
+                var data = new SaveDataModelV2
                 {
+                    Version = CurrentDataVersion,
                     GameConfigs = gameConfigs,
                     GameBackups = gameBackups
                 };
@@ -90,16 +191,41 @@ namespace SaveManager.Services
             }
         }
 
+        #region 配置相关方法
+
         /// <summary>
-        /// 获取游戏的存档配置
+        /// 通过 GameId 获取游戏的存档配置
         /// </summary>
         public GameSaveConfig GetGameConfig(Guid gameId)
         {
-            if (gameConfigs.TryGetValue(gameId, out var config))
+            if (gameIdToConfigId.TryGetValue(gameId, out var configId))
+            {
+                if (gameConfigs.TryGetValue(configId, out var config))
+                {
+                    return config;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 通过 ConfigId 获取配置
+        /// </summary>
+        public GameSaveConfig GetConfigByConfigId(Guid configId)
+        {
+            if (gameConfigs.TryGetValue(configId, out var config))
             {
                 return config;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 获取所有游戏配置
+        /// </summary>
+        public List<GameSaveConfig> GetAllGameConfigs()
+        {
+            return gameConfigs.Values.ToList();
         }
 
         /// <summary>
@@ -108,16 +234,143 @@ namespace SaveManager.Services
         public void SaveGameConfig(GameSaveConfig config)
         {
             config.UpdatedAt = DateTime.Now;
-            gameConfigs[config.GameId] = config;
+            
+            // 确保 ConfigId 存在
+            if (config.ConfigId == Guid.Empty)
+            {
+                config.ConfigId = Guid.NewGuid();
+            }
+
+            gameConfigs[config.ConfigId] = config;
+            
+            // 更新索引
+            foreach (var gameId in config.GameIds)
+            {
+                gameIdToConfigId[gameId] = config.ConfigId;
+            }
+            
             SaveData();
         }
 
         /// <summary>
-        /// 获取游戏的所有备份
+        /// 保存所有配置（批量保存，避免多次写入文件）
+        /// </summary>
+        public void SaveAllConfigs()
+        {
+            RebuildGameIdIndex();
+            SaveData();
+        }
+
+        /// <summary>
+        /// 删除游戏配置及所有备份数据
+        /// </summary>
+        public void DeleteGameConfig(Guid configId)
+        {
+            // 1. 删除备份文件及目录
+            if (gameBackups.TryGetValue(configId, out var backups))
+            {
+                var backupsToDelete = backups.ToList();
+                HashSet<string> directoriesToDelete = new HashSet<string>();
+                
+                foreach (var backup in backupsToDelete)
+                {
+                    try
+                    {
+                        if (File.Exists(backup.BackupFilePath))
+                        {
+                            File.Delete(backup.BackupFilePath);
+                        }
+                        
+                        var dir = Path.GetDirectoryName(backup.BackupFilePath);
+                        if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                        {
+                            directoriesToDelete.Add(dir);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, $"Failed to delete backup file: {backup.BackupFilePath}");
+                    }
+                }
+                
+                // 删除相关的备份目录
+                foreach (var dir in directoriesToDelete)
+                {
+                    try
+                    {
+                        if (Directory.Exists(dir))
+                        {
+                             Directory.Delete(dir, true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         logger.Error(ex, $"Failed to delete backup directory: {dir}");
+                    }
+                }
+                
+                gameBackups.Remove(configId);
+            }
+
+            // 2. 删除配置
+            // 使用更鲁棒的方式查找：同时匹配 Key 和 Value.ConfigId
+            // 防止因为某种原因导致的 Key 不一致
+            var keysToRemove = gameConfigs.Where(kv => kv.Key == configId || kv.Value.ConfigId == configId)
+                                        .Select(kv => kv.Key)
+                                        .ToList();
+            
+            foreach (var key in keysToRemove)
+            {
+                gameConfigs.Remove(key);
+            }
+
+            // 3. 重建索引并保存
+            RebuildGameIdIndex();
+            SaveData();
+        }
+
+        /// <summary>
+        /// 为游戏创建新配置（如果不存在）
+        /// </summary>
+        public GameSaveConfig GetOrCreateGameConfig(Guid gameId, string gameName)
+        {
+            var config = GetGameConfig(gameId);
+            if (config == null)
+            {
+                config = new GameSaveConfig
+                {
+                    ConfigId = Guid.NewGuid(),
+                    GameName = gameName
+                };
+                config.GameIds.Add(gameId);
+                SaveGameConfig(config);
+            }
+            return config;
+        }
+
+        #endregion
+
+        #region 备份相关方法
+
+        /// <summary>
+        /// 通过 GameId 获取游戏的所有备份
         /// </summary>
         public List<SaveBackup> GetBackups(Guid gameId)
         {
-            if (gameBackups.TryGetValue(gameId, out var backups))
+            var config = GetGameConfig(gameId);
+            if (config != null)
+            {
+                return GetBackupsByConfigId(config.ConfigId);
+            }
+            return new List<SaveBackup>();
+        }
+
+        /// <summary>
+        /// 通过 ConfigId 获取备份
+        /// </summary>
+        public List<SaveBackup> GetBackupsByConfigId(Guid configId)
+        {
+            if (gameBackups.TryGetValue(configId, out var backups))
             {
                 return backups.OrderByDescending(b => b.CreatedAt).ToList();
             }
@@ -158,12 +411,13 @@ namespace SaveManager.Services
             }
 
             // 创建游戏专属备份文件夹
-            var gameBackupPath = GetGameBackupDirectory(gameId, gameName);
+            var gameBackupPath = GetGameBackupDirectory(config.ConfigId, gameName);
             Directory.CreateDirectory(gameBackupPath);
 
             // 创建备份
             var backup = new SaveBackup
             {
+                ConfigId = config.ConfigId,
                 GameId = gameId,
                 Name = $"Backup_{DateTime.Now:yyyyMMdd_HHmmss}",
                 Description = description ?? "",
@@ -182,20 +436,17 @@ namespace SaveManager.Services
             backup.FileSize = fileInfo.Length;
 
             // 保存备份记录
-            if (!gameBackups.ContainsKey(gameId))
+            if (!gameBackups.ContainsKey(config.ConfigId))
             {
-                gameBackups[gameId] = new List<SaveBackup>();
+                gameBackups[config.ConfigId] = new List<SaveBackup>();
             }
-            gameBackups[gameId].Add(backup);
+            gameBackups[config.ConfigId].Add(backup);
             SaveData();
 
             logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {backup.BackupFilePath}");
             return backup;
         }
 
-        /// <summary>
-        /// 创建ZIP备份文件
-        /// </summary>
         /// <summary>
         /// 创建ZIP备份文件
         /// </summary>
@@ -285,8 +536,32 @@ namespace SaveManager.Services
                 throw new FileNotFoundException($"Backup file not found: {backup.BackupFilePath}");
             }
 
+            // 尝试获取游戏安装目录 - 首先尝试通过 GameId，然后通过 ConfigId 查找任意匹配的游戏
+            string installDir = null;
+            
+            // 先尝试用备份记录的 GameId
             var game = playniteApi.Database.Games.Get(backup.GameId);
-            var installDir = game?.InstallDirectory;
+            if (game != null)
+            {
+                installDir = game.InstallDirectory;
+            }
+            else
+            {
+                // 如果找不到，尝试通过 ConfigId 查找配置中的任意游戏
+                var config = GetConfigByConfigId(backup.ConfigId);
+                if (config != null)
+                {
+                    foreach (var gameId in config.GameIds)
+                    {
+                        game = playniteApi.Database.Games.Get(gameId);
+                        if (game != null)
+                        {
+                            installDir = game.InstallDirectory;
+                            break;
+                        }
+                    }
+                }
+            }
 
             // 预处理排除路径列表（解析变量）
             var resolvedExcludePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -445,6 +720,9 @@ namespace SaveManager.Services
                 throw new FileNotFoundException("Source file not found", sourceFilePath);
             }
 
+            // 获取或创建配置
+            var config = GetOrCreateGameConfig(gameId, gameName);
+
             string importedDescription = "Imported Backup";
             DateTime importedCreatedAt = DateTime.Now;
 
@@ -494,7 +772,7 @@ namespace SaveManager.Services
             }
 
             // 准备目标路径
-            var gameBackupPath = GetGameBackupDirectory(gameId, gameName);
+            var gameBackupPath = GetGameBackupDirectory(config.ConfigId, gameName);
             Directory.CreateDirectory(gameBackupPath);
 
             // 生成新文件名
@@ -512,6 +790,7 @@ namespace SaveManager.Services
             
             var backup = new SaveBackup
             {
+                ConfigId = config.ConfigId,
                 GameId = gameId,
                 Name = backupName,
                 Description = importedDescription,
@@ -521,11 +800,11 @@ namespace SaveManager.Services
             };
 
             // 保存记录
-            if (!gameBackups.ContainsKey(gameId))
+            if (!gameBackups.ContainsKey(config.ConfigId))
             {
-                gameBackups[gameId] = new List<SaveBackup>();
+                gameBackups[config.ConfigId] = new List<SaveBackup>();
             }
-            gameBackups[gameId].Add(backup);
+            gameBackups[config.ConfigId].Add(backup);
             SaveData();
 
             logger.Info($"Imported backup for game {gameName}: {destPath}");
@@ -542,7 +821,12 @@ namespace SaveManager.Services
                 File.Delete(backup.BackupFilePath);
             }
 
-            if (gameBackups.TryGetValue(backup.GameId, out var backups))
+            // 优先使用 ConfigId，如果没有则通过 GameId 查找
+            var configId = backup.ConfigId != Guid.Empty 
+                ? backup.ConfigId 
+                : (gameIdToConfigId.TryGetValue(backup.GameId, out var cid) ? cid : Guid.Empty);
+
+            if (configId != Guid.Empty && gameBackups.TryGetValue(configId, out var backups))
             {
                 backups.RemoveAll(b => b.Id == backup.Id);
                 
@@ -562,7 +846,7 @@ namespace SaveManager.Services
                         logger.Warn(ex, "Failed to delete empty backup directory");
                     }
 
-                    gameBackups.Remove(backup.GameId);
+                    gameBackups.Remove(configId);
                 }
                 
                 SaveData();
@@ -576,8 +860,13 @@ namespace SaveManager.Services
         /// </summary>
         public void UpdateBackupDescription(SaveBackup backup, string description)
         {
+            // 优先使用 ConfigId
+            var configId = backup.ConfigId != Guid.Empty 
+                ? backup.ConfigId 
+                : (gameIdToConfigId.TryGetValue(backup.GameId, out var cid) ? cid : Guid.Empty);
+
             // 1. 更新本地缓存的数据
-            if (gameBackups.TryGetValue(backup.GameId, out var backups))
+            if (configId != Guid.Empty && gameBackups.TryGetValue(configId, out var backups))
             {
                 var existingBackup = backups.FirstOrDefault(b => b.Id == backup.Id);
                 if (existingBackup != null)
@@ -611,8 +900,8 @@ namespace SaveManager.Services
                         entry = zip.CreateEntry("backup_info.json");
                         
                         // 尝试获取游戏名称（用于元数据完整性）
-                        var game = playniteApi.Database.Games.Get(backup.GameId);
-                        string gameName = game?.Name ?? "Unknown Game";
+                        var config = GetConfigByConfigId(configId);
+                        string gameName = config?.GameName ?? "Unknown Game";
 
                         var info = new BackupInfo
                         {
@@ -637,10 +926,24 @@ namespace SaveManager.Services
         }
 
         /// <summary>
-        /// 获取游戏的备份目录
+        /// 获取游戏的备份目录（使用 ConfigId）
         /// </summary>
-        public string GetGameBackupDirectory(Guid gameId, string gameName)
+        public string GetGameBackupDirectory(Guid configId, string gameName)
         {
+            return Path.Combine(backupsPath, SanitizeFileName(gameName) + "_" + configId.ToString("N").Substring(0, 8));
+        }
+
+        /// <summary>
+        /// 获取游戏的备份目录（通过 GameId 查找）
+        /// </summary>
+        public string GetGameBackupDirectoryByGameId(Guid gameId, string gameName)
+        {
+            var config = GetGameConfig(gameId);
+            if (config != null)
+            {
+                return GetGameBackupDirectory(config.ConfigId, gameName);
+            }
+            // 如果没有配置，返回一个基于 gameId 的临时路径（向后兼容）
             return Path.Combine(backupsPath, SanitizeFileName(gameName) + "_" + gameId.ToString("N").Substring(0, 8));
         }
 
@@ -666,7 +969,8 @@ namespace SaveManager.Services
                 return; // 0 或负数表示不限制
             }
 
-            if (!gameBackups.TryGetValue(gameId, out var backups))
+            var config = GetGameConfig(gameId);
+            if (config == null || !gameBackups.TryGetValue(config.ConfigId, out var backups))
             {
                 return;
             }
@@ -687,7 +991,7 @@ namespace SaveManager.Services
                 // 获取需要删除的自动备份（超出限制的旧备份）
                 var backupsToDelete = sortedAutoBackups.Skip(maxCount).ToList();
                 
-                logger.Info($"Cleaning up {backupsToDelete.Count} old auto-backups for game ID {gameId}");
+                logger.Info($"Cleaning up {backupsToDelete.Count} old auto-backups for config ID {config.ConfigId}");
                 
                 foreach (var backup in backupsToDelete)
                 {
@@ -720,20 +1024,34 @@ namespace SaveManager.Services
                     {
                         Directory.Delete(backupDir);
                     }
-                    gameBackups.Remove(gameId);
+                    gameBackups.Remove(config.ConfigId);
                 }
             }
             catch (Exception ex)
             {
-                logger.Error(ex, $"Failed to cleanup old backups for game ID {gameId}");
+                logger.Error(ex, $"Failed to cleanup old backups for config ID {config.ConfigId}");
             }
         }
 
+        #endregion
+
+        #region 数据模型
+
         /// <summary>
-        /// 存档数据
+        /// V1 存档数据模型（用于迁移）
         /// </summary>
-        private class SaveDataModel
+        private class SaveDataModelV1
         {
+            public Dictionary<Guid, GameSaveConfig> GameConfigs { get; set; }
+            public Dictionary<Guid, List<SaveBackup>> GameBackups { get; set; }
+        }
+
+        /// <summary>
+        /// V2 存档数据模型（当前版本）
+        /// </summary>
+        private class SaveDataModelV2
+        {
+            public int Version { get; set; } = CurrentDataVersion;
             public Dictionary<Guid, GameSaveConfig> GameConfigs { get; set; }
             public Dictionary<Guid, List<SaveBackup>> GameBackups { get; set; }
         }
@@ -747,5 +1065,7 @@ namespace SaveManager.Services
             public bool IsDirectory { get; set; }
             public string EntryName { get; set; }
         }
+
+        #endregion
     }
 }

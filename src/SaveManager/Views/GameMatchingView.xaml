@@ -1,0 +1,241 @@
+<UserControl x:Class="SaveManager.Views.GameMatchingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" 
+             d:DesignHeight="550" d:DesignWidth="800"
+             MinWidth="700" MinHeight="450">
+    <UserControl.Resources>
+        <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}" />
+        
+        <!-- 匹配状态样式 -->
+        <Style x:Key="MatchedStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#4CAF50"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="UnmatchedStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#F44336"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        
+        <!-- 排序按钮样式 -->
+        <Style x:Key="SortButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#1565C0"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+    </UserControl.Resources>
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <!-- 说明 -->
+        <TextBlock Grid.Row="1" Text="{Binding Description}" TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,15"/>
+        
+        <!-- 搜索栏 -->
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBox Grid.Column="0" 
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                     VerticalContentAlignment="Center"
+                     Padding="10,8">
+                <TextBox.Style>
+                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
+                                            <VisualBrush.Visual>
+                                                <Label Content="🔍 搜索配置或游戏..." Foreground="Gray" Padding="5,0,0,0"/>
+                                            </VisualBrush.Visual>
+                                        </VisualBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+        </Grid>
+        
+        <!-- 匹配列表 -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource NormalBorderBrush}" BorderThickness="1" CornerRadius="4">
+            <DataGrid ItemsSource="{Binding MatchingItems}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="False"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      SelectionMode="Single"
+                      Background="Transparent"
+                      BorderThickness="0">
+                <DataGrid.Columns>
+                    <!-- 配置游戏名（带排序） -->
+                    <DataGridTemplateColumn Width="*" IsReadOnly="True">
+                        <DataGridTemplateColumn.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource LOCSaveManagerGameMatchingColConfig}" VerticalAlignment="Center"/>
+                                <Button Content="{Binding DataContext.ConfigNameSortIcon, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.ToggleConfigSortCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Style="{StaticResource SortButtonStyle}"
+                                        Margin="5,0,0,0"
+                                        ToolTip="点击排序"/>
+                            </StackPanel>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="8,4">
+                                    <TextBlock Text="{Binding ConfigGameName}" FontWeight="SemiBold"/>
+                                    <TextBlock Opacity="0.6" FontSize="11">
+                                        <Run Text="{Binding SavePathCount, Mode=OneWay, StringFormat={}{0} 个路径}"/>
+                                        <Run Text=" · "/>
+                                        <Run Text="{Binding BackupCount, Mode=OneWay, StringFormat={}{0} 个备份}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <!-- 匹配状态（带排序） -->
+                    <DataGridTemplateColumn Width="90" IsReadOnly="True">
+                        <DataGridTemplateColumn.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource LOCSaveManagerGameMatchingColStatus}" VerticalAlignment="Center"/>
+                                <Button Content="{Binding DataContext.StatusSortIcon, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.ToggleStatusSortCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Style="{StaticResource SortButtonStyle}"
+                                        Margin="5,0,0,0"
+                                        ToolTip="点击排序"/>
+                            </StackPanel>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding MatchStatusText}" 
+                                           Foreground="{Binding MatchStatusColor}"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <!-- 匹配游戏选择（带搜索） -->
+                    <DataGridTemplateColumn Header="{DynamicResource LOCSaveManagerGameMatchingColMatch}" Width="1.3*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    
+                                    <!-- 搜索框 -->
+                                    <TextBox Grid.Row="0" 
+                                             Text="{Binding GameSearchText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                             Padding="4,3"
+                                             FontSize="11"
+                                             Margin="0,0,0,2">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Background">
+                                                            <Setter.Value>
+                                                                <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
+                                                                    <VisualBrush.Visual>
+                                                                        <Label Content="搜索游戏..." Foreground="Gray" Padding="2,0,0,0" FontSize="11"/>
+                                                                    </VisualBrush.Visual>
+                                                                </VisualBrush>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
+                                    
+                                    <!-- 下拉选择 -->
+                                    <ComboBox Grid.Row="1"
+                                              ItemsSource="{Binding AvailableGames}"
+                                              SelectedItem="{Binding MatchedGame, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              DisplayMemberPath="Name"
+                                              VerticalAlignment="Center">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <!-- 操作按钮 -->
+                    <DataGridTemplateColumn Header="" Width="80" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Command="{Binding DataContext.ClearMatchCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{DynamicResource LOCSaveManagerGameMatchingClearMatch}"
+                                            Padding="4"
+                                            Margin="0,0,4,0"
+                                            Visibility="{Binding IsMatched, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="✕" FontSize="12"/>
+                                    </Button>
+
+                                    <Button Command="{Binding DataContext.DeleteConfigCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{DynamicResource LOCSaveManagerGameMatchingDeleteConfigTooltip}"
+                                            Padding="4">
+                                        <TextBlock Text="🗑" FontSize="12" Foreground="Red"/>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+        
+        <!-- 状态栏 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,15,0,0">
+            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
+            <Button Content="{DynamicResource LOCSaveManagerGameMatchingAutoMatch}" 
+                    Command="{Binding AutoMatchCommand}"
+                    Padding="10,5" Margin="15,0,0,0"/>
+        </StackPanel>
+        
+        <!-- 底部按钮（保存在右，取消在左） -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="{DynamicResource LOCSaveManagerBtnSave}" 
+                    Command="{Binding SaveCommand}"
+                    Padding="20,8" Margin="0,0,10,0"/>
+            <Button Content="{DynamicResource LOCSaveManagerBtnCancel}" 
+                    Command="{Binding CancelCommand}"
+                    Padding="20,8"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

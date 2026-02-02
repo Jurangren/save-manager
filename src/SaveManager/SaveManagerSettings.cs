@@ -85,6 +85,8 @@ namespace SaveManager
         public ICommand GlobalImportCommand { get; }
         [DontSerialize]
         public ICommand OpenDataFolderCommand { get; }
+        [DontSerialize]
+        public ICommand OpenGameMatchingCommand { get; }
 
         /// <summary>
         /// 无参构造函数（序列化需要）
@@ -105,6 +107,7 @@ namespace SaveManager
             GlobalExportCommand = new Playnite.SDK.RelayCommand(() => GlobalExport());
             GlobalImportCommand = new Playnite.SDK.RelayCommand(() => GlobalImport());
             OpenDataFolderCommand = new Playnite.SDK.RelayCommand(() => OpenDataFolder());
+            OpenGameMatchingCommand = new Playnite.SDK.RelayCommand(() => OpenGameMatching());
 
             // 加载保存的设置（使用自定义方法）
             LoadSettings();
@@ -207,6 +210,14 @@ namespace SaveManager
                 logger.Error(ex, "Failed to open data folder");
                 plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
             }
+        }
+
+        /// <summary>
+        /// 打开游戏匹配窗口（完整模式）
+        /// </summary>
+        private void OpenGameMatching()
+        {
+            plugin?.OpenGameMatchingWindow(fullMode: true);
         }
 
         public void BeginEdit()
