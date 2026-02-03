@@ -9,6 +9,7 @@
         <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}" />
     </UserControl.Resources>
     
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="20">
         <TextBlock Text="{DynamicResource LOCSaveManagerSettingsTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
         
@@ -80,20 +81,95 @@
             </Button>
         </StackPanel>
         
+        <!-- 云同步区域 -->
+        <Separator Margin="0,20,0,15" Background="{DynamicResource NormalBorderBrush}"/>
+        
+        <TextBlock Text="{DynamicResource LOCSaveManagerCloudSync}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+        
+        <CheckBox Content="{DynamicResource LOCSaveManagerEnableCloudSync}" 
+                  IsChecked="{Binding CloudSyncEnabled}"
+                  ToolTip="{DynamicResource LOCSaveManagerEnableCloudSyncTooltip}"
+                  Margin="0,5,0,10"/>
+        
+        <!-- 云服务商选择 -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="{DynamicResource LOCSaveManagerCloudProvider}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox SelectedIndex="{Binding CloudProvider}" Width="150"
+                      ToolTip="{DynamicResource LOCSaveManagerCloudProviderTooltip}">
+                <ComboBoxItem Content="Google Drive"/>
+                <ComboBoxItem Content="OneDrive"/>
+                <ComboBoxItem Content="坚果云"/>
+            </ComboBox>
+        </StackPanel>
+        
+        <!-- 配置和验证按钮 -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <Button Command="{Binding ConfigureCloudProviderCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerConfigureCloudTooltip}"
+                    Padding="10,6" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🔧" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerConfigureCloud}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding VerifyCloudCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerVerifyCloudTooltip}"
+                    Padding="10,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🔍" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerVerifyCloud}"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+        
+        <!-- 拉取和推送按钮 -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+            <Button Command="{Binding PullAllDataCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerPullAllDataTooltip}"
+                    Padding="10,6" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📥" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerPullAllData}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding PushAllDataCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerPushAllDataTooltip}"
+                    Padding="10,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📤" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerPushAllData}"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+        
         <!-- 危险区域 -->
         <Separator Margin="0,30,0,15" Background="{DynamicResource NormalBorderBrush}"/>
         
         <TextBlock Text="{DynamicResource LOCSaveManagerDangerZone}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="#CC0000"/>
         
-        <Button Command="{Binding DeleteAllDataCommand}" 
-                Background="#CC0000" Foreground="White"
-                BorderBrush="#AA0000"
-                Padding="10,6"
-                ToolTip="{DynamicResource LOCSaveManagerDeleteAllDataTooltip}">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="⚠️" Margin="0,0,6,0"/>
-                <TextBlock Text="{DynamicResource LOCSaveManagerDeleteAllData}"/>
-            </StackPanel>
-        </Button>
+        <StackPanel Orientation="Horizontal">
+            <Button Command="{Binding DeleteAllDataCommand}" 
+                    Background="#CC0000" Foreground="White"
+                    BorderBrush="#AA0000"
+                    Padding="10,6"
+                    Margin="0,0,10,0"
+                    ToolTip="{DynamicResource LOCSaveManagerDeleteLocalDataTooltip}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⚠️" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerDeleteLocalData}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding DeleteCloudDataCommand}" 
+                    Background="#CC6600" Foreground="White"
+                    BorderBrush="#AA5500"
+                    Padding="10,6"
+                    ToolTip="{DynamicResource LOCSaveManagerDeleteCloudDataTooltip}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="☁️" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerDeleteCloudData}"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </UserControl>

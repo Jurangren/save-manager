@@ -104,6 +104,7 @@ namespace SaveManager.ViewModels
         public ICommand AddFolderCommand { get; }
         public ICommand AddFileCommand { get; }
         public ICommand RemovePathCommand { get; }
+        public ICommand OpenPathCommand { get; }
         public ICommand CreateBackupCommand { get; }
         public ICommand RestoreBackupCommand { get; }
         public ICommand DeleteBackupCommand { get; }
@@ -121,11 +122,17 @@ namespace SaveManager.ViewModels
         public ICommand RemoveExcludePathCommand { get; }
         public ICommand ToggleExcludeExpandedCommand { get; }
 
-        public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService)
+        private readonly CloudSyncManager cloudSyncManager;
+        private readonly RcloneService rcloneService;
+
+        public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService, 
+            CloudSyncManager cloudSyncManager = null, RcloneService rcloneService = null)
         {
             this.game = game;
             this.playniteApi = playniteApi;
             this.backupService = backupService;
+            this.cloudSyncManager = cloudSyncManager;
+            this.rcloneService = rcloneService;
 
             SavePaths = new ObservableCollection<SavePathItem>();
             RestoreExcludePaths = new ObservableCollection<SavePathItem>();
@@ -136,6 +143,7 @@ namespace SaveManager.ViewModels
             AddFolderCommand = new RelayCommand(AddFolder);
             AddFileCommand = new RelayCommand(AddFile);
             RemovePathCommand = new RelayCommand<SavePathItem>(RemovePath);
+            OpenPathCommand = new RelayCommand<SavePathItem>(OpenPath);
             CreateBackupCommand = new RelayCommand(CreateBackup, () => HasSavePaths);
             RestoreBackupCommand = new RelayCommand(RestoreBackup, () => IsSingleBackupSelected && SelectedBackups.FirstOrDefault()?.Name != "Latest");
             DeleteBackupCommand = new RelayCommand(DeleteBackup, () => IsBackupSelected);
@@ -190,6 +198,11 @@ namespace SaveManager.ViewModels
             var backups = backupService.GetBackups(game.Id);
             foreach (var backup in backups)
             {
+                // 设置完整路径（用于检查本地文件是否存在）
+                if (!string.IsNullOrEmpty(backup.BackupFilePath))
+                {
+                    backup.FullPath = backupService.GetFullBackupPath(backup.BackupFilePath);
+                }
                 Backups.Add(backup);
             }
 
@@ -475,6 +488,33 @@ namespace SaveManager.ViewModels
             }
         }
 
+        private void OpenPath(SavePathItem item)
+        {
+            if (item != null && item.IsDirectory)
+            {
+                try
+                {
+                    var resolvedPath = PathHelper.ResolvePath(item.Path, game.InstallDirectory);
+                    if (Directory.Exists(resolvedPath))
+                    {
+                        System.Diagnostics.Process.Start("explorer.exe", resolvedPath);
+                    }
+                    else
+                    {
+                        playniteApi.Dialogs.ShowErrorMessage(
+                            ResourceProvider.GetString("LOCSaveManagerMsgFolderNotFound"),
+                            ResourceProvider.GetString("LOCSaveManagerError"));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"Failed to open folder: {ex.Message}",
+                        ResourceProvider.GetString("LOCSaveManagerError"));
+                }
+            }
+        }
+
         private void UpdateHasSavePaths()
         {
             HasSavePaths = SavePaths.Count > 0;
@@ -667,6 +707,16 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
+                    // 检查本地文件是否存在
+                    if (!backup.IsLocalFileExists)
+                    {
+                        // 需要先从云端下载
+                        if (!DownloadBackupFromCloud(backup))
+                        {
+                            return; // 下载失败
+                        }
+                    }
+
                     // 传递 null 以忽略排除项
                     backupService.RestoreBackup(backup, null);
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -694,6 +744,16 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
+                    // 检查本地文件是否存在
+                    if (!backup.IsLocalFileExists)
+                    {
+                        // 需要先从云端下载
+                        if (!DownloadBackupFromCloud(backup))
+                        {
+                            return; // 下载失败
+                        }
+                    }
+
                     // 构建排除项列表
                     var excludePaths = RestoreExcludePaths.Select(p => new SavePath
                     {
@@ -709,6 +769,76 @@ namespace SaveManager.ViewModels
                     playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
                 }
             }
+        }
+
+        /// <summary>
+        /// 从云端下载备份文件
+        /// </summary>
+        private bool DownloadBackupFromCloud(SaveBackup backup)
+        {
+            if (rcloneService == null || !rcloneService.IsRcloneInstalled)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgRcloneNotInstalled"),
+                    "Error");
+                return false;
+            }
+
+            var config = backupService.GetConfigByConfigId(backup.ConfigId);
+            if (config == null)
+            {
+                playniteApi.Dialogs.ShowErrorMessage("Config not found", "Error");
+                return false;
+            }
+
+            bool downloaded = false;
+
+            playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+            {
+                progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup");
+                progressArgs.IsIndeterminate = true;
+
+                try
+                {
+                    var provider = cloudSyncManager?.GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+                    var remoteGamePath = rcloneService.GetRemoteGamePath(config.ConfigId, config.GameName);
+                    var remoteBackupPath = $"{remoteGamePath}/{backup.Name}.zip";
+                    var localBackupPath = backupService.GetFullBackupPath(backup.BackupFilePath);
+
+                    // 确保本地目录存在
+                    var localDir = System.IO.Path.GetDirectoryName(localBackupPath);
+                    if (!Directory.Exists(localDir))
+                    {
+                        Directory.CreateDirectory(localDir);
+                    }
+
+                    var task = rcloneService.DownloadFileAsync(remoteBackupPath, localBackupPath, provider);
+                    task.Wait();
+                    downloaded = task.Result;
+                }
+                catch (Exception ex)
+                {
+                    playniteApi.Dialogs.ShowErrorMessage($"Download failed: {ex.Message}", "Error");
+                }
+            }, new GlobalProgressOptions(
+                ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup"), false)
+            {
+                IsIndeterminate = true
+            });
+
+            if (!downloaded)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgDownloadBackupFailed"),
+                    "Error");
+            }
+            else
+            {
+                // 下载成功后更新 FullPath，这样 IsLocalFileExists 会返回 true
+                backup.FullPath = backupService.GetFullBackupPath(backup.BackupFilePath);
+            }
+
+            return downloaded;
         }
 
         private void DeleteBackup()

@@ -1,0 +1,941 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using Playnite.SDK;
+using SaveManager.Models;
+
+namespace SaveManager.Services
+{
+    /// <summary>
+    /// Rclone 云同步服务
+    /// </summary>
+    public class RcloneService
+    {
+        private readonly ILogger logger;
+        private readonly IPlayniteAPI playniteApi;
+        private readonly string dataPath;
+
+        // 路径定义
+        private string ToolsPath => Path.Combine(dataPath, "Tools");
+        private string RcloneExePath => Path.Combine(ToolsPath, "rclone.exe");
+        private string RcloneConfigPath => Path.Combine(ToolsPath, "rclone.conf");
+
+        // 远程根目录
+        private const string RemoteRootFolder = "PlayniteSaveManager";
+
+        // 重试设置
+        private const int MaxRetries = 3;
+        private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan ProcessTimeout = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Rclone 是否已安装
+        /// </summary>
+        public bool IsRcloneInstalled => File.Exists(RcloneExePath);
+
+        /// <summary>
+        /// 配置是否有效
+        /// </summary>
+        public bool IsConfigured(CloudProvider provider)
+        {
+            if (!File.Exists(RcloneConfigPath)) return false;
+
+            try
+            {
+                var content = File.ReadAllText(RcloneConfigPath);
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var providerType = CloudProviderHelper.GetProviderType(provider);
+
+                // 检查配置节和类型
+                return content.Contains($"[{configName}]") && content.Contains($"type = {providerType}");
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public RcloneService(string dataPath, ILogger logger, IPlayniteAPI playniteApi)
+        {
+            this.dataPath = dataPath;
+            this.logger = logger;
+            this.playniteApi = playniteApi;
+
+            // 确保工具目录存在
+            Directory.CreateDirectory(ToolsPath);
+        }
+
+        #region Rclone 安装
+
+        /// <summary>
+        /// 下载并安装 Rclone
+        /// </summary>
+        public async Task<bool> InstallRcloneAsync(IProgress<(string message, int percentage)> progress = null, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                progress?.Report(("Getting latest Rclone version...", 0));
+                logger.Info("Starting Rclone installation...");
+
+                // 1. 获取下载链接
+                var downloadUrl = await GetLatestRcloneZipUrlAsync();
+                if (string.IsNullOrEmpty(downloadUrl))
+                {
+                    throw new Exception("Could not determine Rclone download URL");
+                }
+
+                logger.Info($"Download URL: {downloadUrl}");
+                progress?.Report(("Downloading Rclone...", 5));
+
+                // 2. 下载 ZIP 文件（带进度）
+                var zipPath = Path.Combine(ToolsPath, $"rclone_{DateTime.Now:yyyyMMdd_HHmmss}.zip");
+
+                using (var httpClient = new HttpClient())
+                {
+                    httpClient.Timeout = TimeSpan.FromMinutes(10);
+                    
+                    using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+                    {
+                        response.EnsureSuccessStatusCode();
+                        
+                        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                        var canReportProgress = totalBytes > 0;
+                        
+                        using (var contentStream = await response.Content.ReadAsStreamAsync())
+                        using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                        {
+                            var buffer = new byte[8192];
+                            var totalBytesRead = 0L;
+                            int bytesRead;
+                            
+                            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                            {
+                                await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                                totalBytesRead += bytesRead;
+                                
+                                if (canReportProgress)
+                                {
+                                    var percentage = (int)((totalBytesRead * 80 / totalBytes) + 5); // 5-85%
+                                    var downloadedMB = totalBytesRead / 1024.0 / 1024.0;
+                                    var totalMB = totalBytes / 1024.0 / 1024.0;
+                                    progress?.Report(($"Downloading Rclone... {downloadedMB:F1}/{totalMB:F1} MB", percentage));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (cancellationToken.IsCancellationRequested) return false;
+
+                progress?.Report(("Extracting Rclone...", 90));
+
+                // 3. 解压
+                var tempExtractPath = Path.Combine(ToolsPath, $"temp_extract_{DateTime.Now:yyyyMMdd_HHmmss}");
+                Directory.CreateDirectory(tempExtractPath);
+
+                ZipFile.ExtractToDirectory(zipPath, tempExtractPath);
+
+                // 4. 找到 rclone.exe 并复制
+                var rcloneFolder = Directory.GetDirectories(tempExtractPath)
+                    .FirstOrDefault(d => d.Contains("windows"));
+
+                if (rcloneFolder == null)
+                {
+                    throw new Exception("Could not find rclone folder in extracted files.");
+                }
+
+                var rcloneExeSource = Path.Combine(rcloneFolder, "rclone.exe");
+                File.Copy(rcloneExeSource, RcloneExePath, true);
+
+                progress?.Report(("Cleaning up...", 95));
+
+                // 5. 清理
+                File.Delete(zipPath);
+                Directory.Delete(tempExtractPath, true);
+
+                progress?.Report(("Rclone installed successfully!", 100));
+                logger.Info("Rclone installed successfully");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to install Rclone");
+                progress?.Report(($"Installation failed: {ex.Message}", -1));
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取最新 Rclone 下载链接
+        /// </summary>
+        private async Task<string> GetLatestRcloneZipUrlAsync()
+        {
+            // 备用下载链接（固定版本）
+            const string FallbackUrl = "https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-windows-amd64.zip";
+            
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SaveManager-Rclone-Updater/1.0");
+                    client.Timeout = TimeSpan.FromSeconds(15);
+
+                    var json = await client.GetStringAsync("https://api.github.com/repos/rclone/rclone/releases/latest");
+                    var root = JObject.Parse(json);
+
+                    var assets = root["assets"] as JArray;
+                    if (assets != null)
+                    {
+                        foreach (var asset in assets)
+                        {
+                            var name = asset["name"]?.ToString();
+                            if (name != null && name.Contains("windows-amd64.zip"))
+                            {
+                                return asset["browser_download_url"]?.ToString();
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn($"Failed to get latest rclone version from GitHub API, using fallback: {ex.Message}");
+            }
+
+            // 使用备用链接
+            logger.Info($"Using fallback rclone download URL: {FallbackUrl}");
+            return FallbackUrl;
+        }
+
+        #endregion
+
+        #region 云服务认证
+
+        /// <summary>
+        /// 配置云服务（OAuth 认证或 WebDAV）
+        /// </summary>
+        public async Task<bool> ConfigureCloudProviderAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var providerType = CloudProviderHelper.GetProviderType(provider);
+                var displayName = CloudProviderHelper.GetDisplayName(provider);
+
+                logger.Info($"Configuring {displayName}...");
+
+                // 坚果云使用 WebDAV，需要特殊处理
+                if (CloudProviderHelper.RequiresWebDAVConfig(provider))
+                {
+                    return await ConfigureWebDAVProviderAsync(provider);
+                }
+
+                // 执行 rclone config create（会打开浏览器进行 OAuth）
+                var result = await ExecuteRcloneCommandAsync(
+                    $"config create {configName} {providerType} --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromMinutes(5),
+                    hideWindow: false  // 需要用户交互
+                );
+
+                if (result.Success && IsConfigured(provider))
+                {
+                    logger.Info($"{displayName} configured successfully");
+                    
+                    // 创建 SaveManager 根目录
+                    await EnsureRemoteRootDirectoryAsync(provider);
+                    
+                    return true;
+                }
+                else
+                {
+                    logger.Error($"Failed to configure {displayName}: {result.Error}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to configure cloud provider: {provider}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 确保远程根目录存在
+        /// </summary>
+        public async Task EnsureRemoteRootDirectoryAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var remotePath = $"{configName}:{RemoteRootFolder}";
+                
+                logger.Info($"Creating remote root directory: {remotePath}");
+                
+                var result = await ExecuteRcloneCommandAsync(
+                    $"mkdir \"{remotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+                
+                if (result.Success)
+                {
+                    logger.Info("Remote root directory created/verified");
+                }
+                else
+                {
+                    logger.Warn($"Failed to create remote root directory: {result.Error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to ensure remote root directory");
+            }
+        }
+
+        /// <summary>
+        /// 确保远程目录存在（包括父目录）
+        /// </summary>
+        public async Task EnsureRemoteDirectoryAsync(string remotePath, CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+                
+                // rclone mkdir 会自动创建所有父目录
+                var result = await ExecuteRcloneCommandAsync(
+                    $"mkdir \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+                
+                if (!result.Success)
+                {
+                    logger.Warn($"Failed to create remote directory {remotePath}: {result.Error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to ensure remote directory: {remotePath}");
+            }
+        }
+
+        /// <summary>
+        /// 配置 WebDAV 云服务（坚果云）
+        /// </summary>
+        private async Task<bool> ConfigureWebDAVProviderAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var displayName = CloudProviderHelper.GetDisplayName(provider);
+
+                // 弹出输入框获取用户名和密码
+                var username = playniteApi.Dialogs.SelectString(
+                    "请输入坚果云账号（邮箱）：\n\n提示：您需要先在坚果云网页版 -> 安全选项 -> 第三方应用管理 中创建应用密码",
+                    "坚果云配置 - 账号",
+                    ""
+                );
+
+                if (!username.Result || string.IsNullOrWhiteSpace(username.SelectedString))
+                {
+                    logger.Info("User cancelled WebDAV username input");
+                    return false;
+                }
+
+                var password = playniteApi.Dialogs.SelectString(
+                    "请输入坚果云应用密码：\n\n注意：这是应用专用密码，不是登录密码！\n请在坚果云网页版 -> 安全选项 -> 第三方应用管理 中创建",
+                    "坚果云配置 - 应用密码",
+                    ""
+                );
+
+                if (!password.Result || string.IsNullOrWhiteSpace(password.SelectedString))
+                {
+                    logger.Info("User cancelled WebDAV password input");
+                    return false;
+                }
+
+                // 坚果云 WebDAV 地址
+                const string jianguoyunWebDAVUrl = "https://dav.jianguoyun.com/dav/";
+
+                // 先使用 rclone obscure 加密密码
+                var obscureResult = await ExecuteRcloneCommandAsync(
+                    $"obscure \"{password.SelectedString}\"",
+                    TimeSpan.FromSeconds(10)
+                );
+
+                if (!obscureResult.Success || string.IsNullOrWhiteSpace(obscureResult.Output))
+                {
+                    logger.Error($"Failed to obscure password: {obscureResult.Error}");
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        "密码加密失败，请重试。",
+                        "配置失败"
+                    );
+                    return false;
+                }
+
+                var obscuredPassword = obscureResult.Output.Trim();
+
+                // 使用 rclone config create 创建 WebDAV 配置
+                var result = await ExecuteRcloneCommandAsync(
+                    $"config create {configName} webdav " +
+                    $"url \"{jianguoyunWebDAVUrl}\" " +
+                    $"vendor other " +
+                    $"user \"{username.SelectedString}\" " +
+                    $"pass \"{obscuredPassword}\" " +
+                    $"--config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                if (result.Success && IsConfigured(provider))
+                {
+                    logger.Info($"{displayName} configured successfully");
+                    
+                    // 创建 SaveManager 根目录
+                    await EnsureRemoteRootDirectoryAsync(provider);
+                    
+                    playniteApi.Dialogs.ShowMessage(
+                        "坚果云配置成功！\n\n您的存档将同步到坚果云的 SaveManager 文件夹中。",
+                        "配置成功",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information
+                    );
+                    return true;
+                }
+                else
+                {
+                    logger.Error($"Failed to configure {displayName}: {result.Error}");
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"坚果云配置失败：{result.Error}\n\n请检查账号和应用密码是否正确。",
+                        "配置失败"
+                    );
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to configure WebDAV provider");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 测试云服务连接
+        /// </summary>
+        public async Task<bool> TestConnectionAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+
+                var result = await ExecuteRcloneCommandAsync(
+                    $"lsd {configName}: --max-depth 1 --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Connection test failed");
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 上传操作
+
+        /// <summary>
+        /// 上传文件到云端
+        /// </summary>
+        public async Task<bool> UploadFileAsync(
+            string localPath,
+            string remotePath,
+            CloudProvider provider,
+            CancellationToken cancellationToken = default)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            // 确保父目录存在（对于 WebDAV 特别重要）
+            var parentDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
+            if (!string.IsNullOrEmpty(parentDir))
+            {
+                await EnsureRemoteDirectoryAsync(parentDir, provider);
+            }
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                if (cancellationToken.IsCancellationRequested) return false;
+
+                try
+                {
+                    logger.Debug($"Upload attempt {attempt}/{MaxRetries}: {Path.GetFileName(localPath)}");
+
+                    var result = await ExecuteRcloneCommandAsync(
+                        $"copyto \"{localPath}\" \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                        ProcessTimeout
+                    );
+
+                    if (result.Success)
+                    {
+                        logger.Info($"Uploaded: {Path.GetFileName(localPath)}");
+                        return true;
+                    }
+
+                    logger.Warn($"Upload attempt {attempt} failed: {result.Error}");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, $"Upload attempt {attempt} exception");
+                }
+
+                if (attempt < MaxRetries)
+                {
+                    await Task.Delay(RetryDelay, cancellationToken);
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 上传目录到云端
+        /// </summary>
+        public async Task<bool> UploadDirectoryAsync(
+            string localDir,
+            string remotePath,
+            CloudProvider provider,
+            CancellationToken cancellationToken = default)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            try
+            {
+                logger.Info($"Uploading directory: {localDir} -> {fullRemotePath}");
+
+                var result = await ExecuteRcloneCommandAsync(
+                    $"copy \"{localDir}\" \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromMinutes(30)
+                );
+
+                if (result.Success)
+                {
+                    logger.Info($"Directory uploaded successfully");
+                    return true;
+                }
+
+                logger.Error($"Directory upload failed: {result.Error}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Directory upload exception");
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 下载操作
+
+        /// <summary>
+        /// 从云端下载文件
+        /// </summary>
+        public async Task<bool> DownloadFileAsync(
+            string remotePath,
+            string localPath,
+            CloudProvider provider,
+            CancellationToken cancellationToken = default)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            // 确保目标目录存在
+            var targetDir = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                if (cancellationToken.IsCancellationRequested) return false;
+
+                try
+                {
+                    logger.Debug($"Download attempt {attempt}/{MaxRetries}: {remotePath}");
+
+                    var result = await ExecuteRcloneCommandAsync(
+                        $"copyto \"{fullRemotePath}\" \"{localPath}\" --config \"{RcloneConfigPath}\"",
+                        ProcessTimeout
+                    );
+
+                    if (result.Success)
+                    {
+                        logger.Info($"Downloaded: {remotePath}");
+                        return true;
+                    }
+
+                    logger.Warn($"Download attempt {attempt} failed: {result.Error}");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, $"Download attempt {attempt} exception");
+                }
+
+                if (attempt < MaxRetries)
+                {
+                    await Task.Delay(RetryDelay, cancellationToken);
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 从云端下载目录
+        /// </summary>
+        /// <param name="remotePath">远程路径</param>
+        /// <param name="localDir">本地目录</param>
+        /// <param name="provider">云服务提供商</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <param name="excludePattern">排除模式（可选），如 "*/Latest.zip"</param>
+        public async Task<bool> DownloadDirectoryAsync(
+            string remotePath,
+            string localDir,
+            CloudProvider provider,
+            CancellationToken cancellationToken = default,
+            string excludePattern = null)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            try
+            {
+                // 确保目标目录存在
+                Directory.CreateDirectory(localDir);
+
+                logger.Info($"Downloading directory: {fullRemotePath} -> {localDir}");
+
+                // 构建命令
+                var command = $"copy \"{fullRemotePath}\" \"{localDir}\" --config \"{RcloneConfigPath}\"";
+                if (!string.IsNullOrEmpty(excludePattern))
+                {
+                    command += $" --exclude \"{excludePattern}\"";
+                    logger.Info($"Excluding pattern: {excludePattern}");
+                }
+
+                var result = await ExecuteRcloneCommandAsync(command, TimeSpan.FromMinutes(30));
+
+                if (result.Success)
+                {
+                    logger.Info($"Directory downloaded successfully");
+                    return true;
+                }
+
+                logger.Error($"Directory download failed: {result.Error}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Directory download exception");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 检查远程文件是否存在
+        /// </summary>
+        public async Task<bool> RemoteFileExistsAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            try
+            {
+                var result = await ExecuteRcloneCommandAsync(
+                    $"lsf \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                return result.Success && !string.IsNullOrWhiteSpace(result.Output);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取远程文件的修改时间
+        /// </summary>
+        public async Task<DateTime?> GetRemoteFileModTimeAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+
+            try
+            {
+                // 使用 lsjson 获取文件信息
+                var result = await ExecuteRcloneCommandAsync(
+                    $"lsjson \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                logger.Info($"lsjson result for {remotePath}: Success={result.Success}, Output={result.Output?.Substring(0, Math.Min(200, result.Output?.Length ?? 0))}");
+
+                if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                {
+                    var jsonArray = JArray.Parse(result.Output);
+                    if (jsonArray.Count > 0)
+                    {
+                        var modTimeStr = jsonArray[0]["ModTime"]?.ToString();
+                        logger.Info($"ModTime string: {modTimeStr}");
+                        if (!string.IsNullOrEmpty(modTimeStr) && DateTime.TryParse(modTimeStr, out var modTime))
+                        {
+                            return modTime;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to get remote file mod time");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 云服务验证结果
+        /// </summary>
+        public class CloudVerifyResult
+        {
+            public bool ConnectionSuccessful { get; set; }
+            public bool BackupExists { get; set; }
+            public DateTime? BackupModTime { get; set; }
+            public string ErrorMessage { get; set; }
+        }
+
+        /// <summary>
+        /// 验证云服务连接和备份状态
+        /// </summary>
+        public async Task<CloudVerifyResult> VerifyCloudServiceAsync(CloudProvider provider, CancellationToken cancellationToken = default)
+        {
+            var result = new CloudVerifyResult();
+
+            try
+            {
+                // 1. 测试连接
+                var connected = await TestConnectionAsync(provider);
+                result.ConnectionSuccessful = connected;
+
+                if (!connected)
+                {
+                    result.ErrorMessage = "Cannot connect to cloud service";
+                    return result;
+                }
+
+                if (cancellationToken.IsCancellationRequested) return result;
+
+                // 2. 检查 config.json 是否存在及其修改时间
+                var configExists = await RemoteFileExistsAsync("config.json", provider);
+                result.BackupExists = configExists;
+
+                if (configExists)
+                {
+                    result.BackupModTime = await GetRemoteFileModTimeAsync("config.json", provider);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = ex.Message;
+                logger.Error(ex, "Cloud service verification failed");
+            }
+
+            return result;
+        }
+
+        #endregion
+
+        #region Rclone 命令执行
+
+        /// <summary>
+        /// 命令执行结果
+        /// </summary>
+        public class RcloneResult
+        {
+            public bool Success { get; set; }
+            public int ExitCode { get; set; }
+            public string Output { get; set; }
+            public string Error { get; set; }
+        }
+
+        /// <summary>
+        /// 执行 Rclone 命令
+        /// </summary>
+        private async Task<RcloneResult> ExecuteRcloneCommandAsync(
+            string arguments,
+            TimeSpan timeout,
+            bool hideWindow = true)
+        {
+            var result = new RcloneResult();
+
+            try
+            {
+                using (var process = new Process())
+                {
+                    process.StartInfo = new ProcessStartInfo
+                    {
+                        FileName = RcloneExePath,
+                        Arguments = arguments,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = hideWindow,
+                        WindowStyle = hideWindow ? ProcessWindowStyle.Hidden : ProcessWindowStyle.Normal
+                    };
+
+                    var outputBuilder = new System.Text.StringBuilder();
+                    var errorBuilder = new System.Text.StringBuilder();
+
+                    process.OutputDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null) outputBuilder.AppendLine(e.Data);
+                    };
+                    process.ErrorDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null) errorBuilder.AppendLine(e.Data);
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    var completed = await Task.Run(() => process.WaitForExit((int)timeout.TotalMilliseconds));
+
+                    if (!completed)
+                    {
+                        process.Kill();
+                        result.Error = "Process timed out";
+                        result.ExitCode = -1;
+                        return result;
+                    }
+
+                    result.ExitCode = process.ExitCode;
+                    result.Output = outputBuilder.ToString();
+                    result.Error = errorBuilder.ToString();
+                    result.Success = result.ExitCode == 0;
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Error = ex.Message;
+                result.ExitCode = -1;
+                return result;
+            }
+        }
+
+        #endregion
+
+        #region 辅助方法
+
+        /// <summary>
+        /// 清理游戏名（移除非法字符）
+        /// </summary>
+        public static string SanitizeGameName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return "UnknownGame";
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = new string(name.Where(c => !invalidChars.Contains(c)).ToArray());
+            sanitized = sanitized.Trim().Trim('.');
+
+            return string.IsNullOrEmpty(sanitized) ? "UnknownGame" : sanitized;
+        }
+
+        /// <summary>
+        /// 获取游戏在云端的备份目录路径
+        /// </summary>
+        public string GetRemoteGamePath(Guid configId, string gameName)
+        {
+            var safeName = SanitizeGameName(gameName);
+            return $"Backups/{safeName}_{configId.ToString().Substring(0, 8)}";
+        }
+
+        /// <summary>
+        /// 删除云端所有数据
+        /// </summary>
+        public async Task<bool> DeleteAllCloudDataAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var remotePath = $"{configName}:{RemoteRootFolder}";
+
+                logger.Info($"Deleting all cloud data at {remotePath}");
+
+                // 某些 WebDAV 服务（如坚果云）可能不允许直接 purge 根目录
+                // 所以我们改为先删除所有文件，再删除所有空目录
+                
+                // 1. 删除所有文件
+                logger.Info($"Deleting all files in {remotePath}");
+                var deleteResult = await ExecuteRcloneCommandAsync(
+                    $"delete \"{remotePath}\" --config \"{RcloneConfigPath}\"",
+                    ProcessTimeout);
+
+                if (!deleteResult.Success && !IsNotFoundError(deleteResult))
+                {
+                    logger.Warn($"Failed to delete files: {deleteResult.Error}");
+                    // 如果删除文件失败，但不是因为找不到目录，则返回失败
+                    // 但我们可以继续尝试删除目录，以防万一
+                }
+
+                // 2. 删除所有空目录 (包括子目录)
+                logger.Info($"Deleting empty directories in {remotePath}");
+                var rmdirsResult = await ExecuteRcloneCommandAsync(
+                    $"rmdirs \"{remotePath}\" --leave-root --config \"{RcloneConfigPath}\"",
+                    ProcessTimeout);
+
+                if (rmdirsResult.Success || IsNotFoundError(rmdirsResult))
+                {
+                    logger.Info("All cloud data deleted (cleared) successfully");
+                    return true;
+                }
+                else
+                {
+                     logger.Warn($"Failed to delete directories: {rmdirsResult.Error}");
+                     return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to delete cloud data");
+                return false;
+            }
+        }
+
+        private bool IsNotFoundError(RcloneResult result)
+        {
+            return result.Output.Contains("directory not found") || 
+                   result.Error.Contains("directory not found") ||
+                   result.Output.Contains("not found") || 
+                   result.Error.Contains("not found");
+        }
+
+        #endregion
+    }
+}

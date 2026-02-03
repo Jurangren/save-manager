@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SaveManager.Models
 {
@@ -26,5 +27,15 @@ namespace SaveManager.Models
         /// 备份版本（用于未来兼容性）
         /// </summary>
         public int Version { get; set; } = 1;
+
+        /// <summary>
+        /// 备份文件的 CRC32 校验值（在创建后计算并更新）
+        /// </summary>
+        public string CRC { get; set; }
+
+        /// <summary>
+        /// 版本历史记录（CRC 列表，用于跨设备同步时判断关系）
+        /// </summary>
+        public List<string> VersionHistory { get; set; } = new List<string>();
     }
 }

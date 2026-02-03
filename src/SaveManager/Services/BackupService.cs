@@ -206,7 +206,7 @@ namespace SaveManager.Services
         /// 计算备份文件内容的 CRC32 校验值
         /// 排除元数据文件：backup_info.json 和 __save_paths__.json
         /// </summary>
-        private string ComputeCrc32(string filePath)
+        public string ComputeCrc32(string filePath)
         {
             const uint polynomial = 0xEDB88320;
             uint[] table = new uint[256];
@@ -468,6 +468,86 @@ namespace SaveManager.Services
         }
 
         /// <summary>
+        /// 重新加载数据（用于云同步后刷新）
+        /// </summary>
+        public void ReloadData()
+        {
+            LoadData();
+            
+            // 自动匹配本地游戏
+            AutoMatchLocalGames();
+            
+            logger.Info("Backup data reloaded");
+        }
+
+        /// <summary>
+        /// 自动匹配本地游戏到现有配置（根据游戏名称）
+        /// 用于跨设备同步后，将本地游戏 ID 关联到云端配置
+        /// </summary>
+        public void AutoMatchLocalGames()
+        {
+            if (playniteApi?.Database?.Games == null) return;
+
+            int matchedCount = 0;
+            bool hasChanges = false;
+
+            foreach (var config in gameConfigs.Values)
+            {
+                if (string.IsNullOrEmpty(config.GameName)) continue;
+                if (config.DisableAutoMatch) continue;
+
+                // 查找本地同名游戏
+                var localGames = playniteApi.Database.Games
+                    .Where(g => g.Name != null && 
+                           g.Name.Equals(config.GameName, StringComparison.OrdinalIgnoreCase) &&
+                           !config.GameIds.Contains(g.Id) &&
+                           !config.IsGameIdExcluded(g.Id))
+                    .ToList();
+
+                foreach (var game in localGames)
+                {
+                    // 检查这个 GameId 是否已经关联到其他配置
+                    if (!gameIdToConfigId.ContainsKey(game.Id))
+                    {
+                        config.AddGameId(game.Id);
+                        gameIdToConfigId[game.Id] = config.ConfigId;
+                        matchedCount++;
+                        hasChanges = true;
+                        logger.Info($"Auto-matched game '{game.Name}' (ID: {game.Id}) to config '{config.ConfigId}'");
+                    }
+                }
+            }
+
+            if (hasChanges)
+            {
+                SaveData();
+                logger.Info($"Auto-matched {matchedCount} local games to existing configs");
+            }
+        }
+
+        /// <summary>
+        /// 更新或添加备份记录
+        /// </summary>
+        public void UpdateOrAddBackup(SaveBackup backup)
+        {
+            if (!gameBackups.ContainsKey(backup.ConfigId))
+            {
+                gameBackups[backup.ConfigId] = new List<SaveBackup>();
+            }
+
+            var existing = gameBackups[backup.ConfigId]
+                .FirstOrDefault(b => b.Name == backup.Name);
+
+            if (existing != null)
+            {
+                gameBackups[backup.ConfigId].Remove(existing);
+            }
+
+            gameBackups[backup.ConfigId].Add(backup);
+            SaveData();
+        }
+
+        /// <summary>
         /// 创建备份
         /// </summary>
         /// <param name="gameId">游戏ID</param>
@@ -488,6 +568,13 @@ namespace SaveManager.Services
             // 验证解析后的路径存在
             foreach (var savePath in config.SavePaths)
             {
+                // 检查路径是否需要游戏目录
+                if (savePath.Path.Contains(PathHelper.GameDirVariable) && string.IsNullOrEmpty(installDir))
+                {
+                    throw new InvalidOperationException(
+                        ResourceProvider.GetString("LOCSaveManagerMsgGameDirNotAvailable"));
+                }
+
                 var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
                 
                 if (savePath.IsDirectory && !Directory.Exists(absolutePath))
@@ -555,6 +642,9 @@ namespace SaveManager.Services
             {
                 backup.VersionHistory.Add(backup.CRC);
             }
+
+            // 更新 zip 内的 backup_info.json（写入 CRC 和 VersionHistory）
+            UpdateBackupInfoInZip(fullBackupPath, gameName, backup.Description, backup.CRC, backup.VersionHistory);
 
             // 保存备份记录
             if (!gameBackups.ContainsKey(config.ConfigId))
@@ -656,6 +746,13 @@ namespace SaveManager.Services
             // 验证路径存在
             foreach (var savePath in config.SavePaths)
             {
+                // 检查路径是否需要游戏目录
+                if (savePath.Path.Contains(PathHelper.GameDirVariable) && string.IsNullOrEmpty(installDir))
+                {
+                    throw new InvalidOperationException(
+                        ResourceProvider.GetString("LOCSaveManagerMsgGameDirNotAvailable"));
+                }
+
                 var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
                 
                 if (savePath.IsDirectory && !Directory.Exists(absolutePath))
@@ -727,6 +824,9 @@ namespace SaveManager.Services
             {
                 backup.VersionHistory.Add(backup.CRC);
             }
+
+            // 更新 zip 内的 backup_info.json（写入 CRC 和 VersionHistory）
+            UpdateBackupInfoInZip(fullBackupPath, gameName, backup.Description, backup.CRC, backup.VersionHistory);
 
             // 如果之前存在 Latest，则替换；否则新增
             if (previousLatest != null)
@@ -987,18 +1087,29 @@ namespace SaveManager.Services
             {
                 try
                 {
-                    // 获取游戏名称
-                    var gameName = playniteApi.Database.Games.Get(backup.GameId)?.Name ?? "Unknown Game";
-
-                    // 重新创建快照（这将基于当前磁盘文件生成 Latest.zip）
-                    // 并且基于被还原备份的历史记录
-                    CreateRealtimeSyncSnapshot(backup.GameId, gameName, backup.VersionHistory);
-                    logger.Info($"Re-created Latest.zip after restore for game {gameName}");
+                    // 使用当前设备找到的游戏（而不是备份中记录的 GameId，那可能是其他设备的）
+                    // game 变量在前面已经通过 ConfigId 查找设置过了
+                    if (game != null)
+                    {
+                        // 重新创建快照（这将基于当前磁盘文件生成 Latest.zip）
+                        // 并且基于被还原备份的历史记录
+                        CreateRealtimeSyncSnapshot(game.Id, game.Name, backup.VersionHistory);
+                        logger.Info($"Re-created Latest.zip after restore for game {game.Name}");
+                    }
+                    else
+                    {
+                        logger.Warn("Cannot update Latest.zip: no matching game found on this device");
+                    }
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("GameDir") || ex.Message.Contains("{GameDir}"))
+                {
+                    // 游戏目录不可用时，只记录警告，不弹窗
+                    logger.Warn($"Skipped Latest.zip update: game directory not available");
                 }
                 catch (Exception ex)
                 {
                     logger.Warn(ex, "Failed to update Latest.zip after restore");
-                    // 弹窗提示用户文件被占用或其他错误
+                    // 文件被占用或其他错误才弹窗
                     playniteApi.Dialogs.ShowErrorMessage(
                         $"Failed to update Latest.zip: {ex.Message}", 
                         "Real-time Sync Error");
@@ -1130,6 +1241,9 @@ namespace SaveManager.Services
             // 版本历史仅记录当前备份的 CRC
             backup.VersionHistory.Add(backup.CRC);
 
+            // 更新 zip 内的 backup_info.json（写入 CRC 和 VersionHistory）
+            UpdateBackupInfoInZip(destPath, gameName, backup.Description, backup.CRC, backup.VersionHistory);
+
             // 保存记录
             if (!gameBackups.ContainsKey(config.ConfigId))
             {
@@ -1255,6 +1369,73 @@ namespace SaveManager.Services
             {
                 logger.Error(ex, $"Failed to update backup_info.json in ZIP: {backup.BackupFilePath}");
                 // 注意：这里我们记录错误但不抛出异常，因为本地缓存已经更新，这是一个非致命错误
+            }
+        }
+
+        /// <summary>
+        /// 更新 ZIP 文件内的 backup_info.json（包含 CRC 和 VersionHistory）
+        /// </summary>
+        private void UpdateBackupInfoInZip(string zipPath, string gameName, string description, string crc, List<string> versionHistory)
+        {
+            try
+            {
+                using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Update))
+                {
+                    var entry = zip.GetEntry("backup_info.json");
+                    if (entry != null)
+                    {
+                        entry.Delete();
+                    }
+
+                    entry = zip.CreateEntry("backup_info.json");
+
+                    var info = new BackupInfo
+                    {
+                        Description = description,
+                        CreatedAt = DateTime.Now,
+                        GameName = gameName,
+                        Version = 2, // 升级版本号，表示包含 CRC 和 VersionHistory
+                        CRC = crc,
+                        VersionHistory = versionHistory ?? new List<string>()
+                    };
+
+                    using (var writer = new StreamWriter(entry.Open()))
+                    {
+                        writer.Write(Playnite.SDK.Data.Serialization.ToJson(info, true));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to update backup_info.json in ZIP: {zipPath}");
+            }
+        }
+
+        /// <summary>
+        /// 从 ZIP 文件中读取 backup_info.json
+        /// </summary>
+        public BackupInfo ReadBackupInfoFromZip(string zipPath)
+        {
+            try
+            {
+                if (!File.Exists(zipPath)) return null;
+
+                using (var zip = ZipFile.OpenRead(zipPath))
+                {
+                    var entry = zip.GetEntry("backup_info.json");
+                    if (entry == null) return null;
+
+                    using (var reader = new StreamReader(entry.Open()))
+                    {
+                        var json = reader.ReadToEnd();
+                        return Playnite.SDK.Data.Serialization.FromJson<BackupInfo>(json);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, $"Failed to read backup_info.json from ZIP: {zipPath}");
+                return null;
             }
         }
 

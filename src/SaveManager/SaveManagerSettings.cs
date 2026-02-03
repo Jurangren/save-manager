@@ -97,6 +97,55 @@ namespace SaveManager
             }
         }
 
+        // 云同步设置
+        private bool cloudSyncEnabled = false;
+        private int cloudProvider = 0; // 0 = Google Drive, 1 = OneDrive
+
+        /// <summary>
+        /// 云同步是否启用
+        /// </summary>
+        public bool CloudSyncEnabled
+        {
+            get => cloudSyncEnabled;
+            set => SetValue(ref cloudSyncEnabled, value);
+        }
+
+        /// <summary>
+        /// 云服务商（0 = Google Drive, 1 = OneDrive）
+        /// </summary>
+        public int CloudProvider
+        {
+            get => cloudProvider;
+            set => SetValue(ref cloudProvider, value);
+        }
+
+        // 云服务验证状态（不序列化）
+        [DontSerialize]
+        private string cloudVerifyStatus = "";
+        [DontSerialize]
+        private bool isVerifyingCloud = false;
+
+        /// <summary>
+        /// 云服务验证状态文本
+        /// </summary>
+        [DontSerialize]
+        public string CloudVerifyStatus
+        {
+            get => cloudVerifyStatus;
+            set => SetValue(ref cloudVerifyStatus, value);
+        }
+
+        /// <summary>
+        /// 是否正在验证云服务
+        /// </summary>
+        [DontSerialize]
+        public bool IsVerifyingCloud
+        {
+            get => isVerifyingCloud;
+            set => SetValue(ref isVerifyingCloud, value);
+        }
+
+
         // 用于存储备份的原始值
         [DontSerialize]
         private string editingCustomBackupPath;
@@ -122,6 +171,16 @@ namespace SaveManager
         public ICommand OpenGameMatchingCommand { get; }
         [DontSerialize]
         public ICommand DeleteAllDataCommand { get; }
+        [DontSerialize]
+        public ICommand DeleteCloudDataCommand { get; }
+        [DontSerialize]
+        public ICommand ConfigureCloudProviderCommand { get; }
+        [DontSerialize]
+        public ICommand PullAllDataCommand { get; }
+        [DontSerialize]
+        public ICommand PushAllDataCommand { get; }
+        [DontSerialize]
+        public ICommand VerifyCloudCommand { get; }
 
         /// <summary>
         /// 无参构造函数（序列化需要）
@@ -144,6 +203,11 @@ namespace SaveManager
             OpenDataFolderCommand = new Playnite.SDK.RelayCommand(() => OpenDataFolder());
             OpenGameMatchingCommand = new Playnite.SDK.RelayCommand(() => OpenGameMatching());
             DeleteAllDataCommand = new Playnite.SDK.RelayCommand(() => DeleteAllData());
+            DeleteCloudDataCommand = new Playnite.SDK.RelayCommand(async () => await DeleteCloudDataAsync());
+            ConfigureCloudProviderCommand = new Playnite.SDK.RelayCommand(async () => await ConfigureCloudProviderAsync());
+            PullAllDataCommand = new Playnite.SDK.RelayCommand(async () => await PullAllDataAsync());
+            PushAllDataCommand = new Playnite.SDK.RelayCommand(async () => await PushAllDataAsync());
+            VerifyCloudCommand = new Playnite.SDK.RelayCommand(() => VerifyCloud());
 
             // 加载保存的设置（使用自定义方法）
             LoadSettings();
@@ -176,6 +240,10 @@ namespace SaveManager
                         ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
                         MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
                         RealtimeSyncEnabled = savedSettings.RealtimeSyncEnabled;
+                        // 云同步设置
+                        cloudSyncEnabled = savedSettings.CloudSyncEnabled;
+                        cloudProvider = savedSettings.CloudProvider;
+                        logger.Info($"Settings loaded: CloudSyncEnabled={cloudSyncEnabled}, CloudProvider={cloudProvider}");
                     }
                 }
             }
@@ -275,7 +343,7 @@ namespace SaveManager
                     plugin?.DeleteAllPluginData();
                     
                     plugin.PlayniteApi.Dialogs.ShowMessage(
-                        ResourceProvider.GetString("LOCSaveManagerMsgDeleteAllDataSuccess"),
+                        ResourceProvider.GetString("LOCSaveManagerMsgDeleteAllDataSuccessRestart"),
                         "Save Manager",
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information);
@@ -289,6 +357,643 @@ namespace SaveManager
                     "Error");
             }
         }
+
+        /// <summary>
+        /// 删除云端所有数据
+        /// </summary>
+        private async System.Threading.Tasks.Task DeleteCloudDataAsync()
+        {
+            try
+            {
+                if (!CloudSyncEnabled)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgCloudNotEnabled"),
+                        "Save Manager",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                    return;
+                }
+
+                var result = plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgConfirmDeleteCloudData"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleWarning"),
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    var rcloneService = plugin.GetRcloneService();
+                    if (rcloneService == null)
+                    {
+                        plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                            "Cloud sync service not initialized.",
+                            "Error");
+                        return;
+                    }
+
+                    bool success = false;
+                    plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                    {
+                        progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgDeletingCloudData");
+                        progressArgs.IsIndeterminate = true;
+
+                        var task = rcloneService.DeleteAllCloudDataAsync((Models.CloudProvider)CloudProvider);
+                        task.Wait();
+                        success = task.Result;
+                    }, new GlobalProgressOptions(
+                        ResourceProvider.GetString("LOCSaveManagerMsgDeletingCloudData"), false)
+                    {
+                        IsIndeterminate = true
+                    });
+
+                    if (success)
+                    {
+                        plugin.PlayniteApi.Dialogs.ShowMessage(
+                            ResourceProvider.GetString("LOCSaveManagerMsgDeleteCloudDataSuccess"),
+                            "Save Manager",
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                            ResourceProvider.GetString("LOCSaveManagerMsgDeleteCloudDataFailed"),
+                            "Error");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to delete cloud data");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                    $"{ResourceProvider.GetString("LOCSaveManagerMsgDeleteCloudDataFailed")}\n{ex.Message}",
+                    "Error");
+            }
+        }
+
+        /// <summary>
+        /// 配置云服务商（包含 Rclone 安装检查）
+        /// </summary>
+        private async System.Threading.Tasks.Task ConfigureCloudProviderAsync()
+        {
+            try
+            {
+                var rcloneService = plugin.GetRcloneService();
+                if (rcloneService == null)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        "Cloud sync service not initialized.",
+                        "Error");
+                    return;
+                }
+
+                // 检查 Rclone 是否已安装，如果没有则提示安装
+                if (!rcloneService.IsRcloneInstalled)
+                {
+                    var installConfirm = plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgInstallRclone"),
+                        ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Question);
+
+                    if (installConfirm != System.Windows.MessageBoxResult.Yes)
+                    {
+                        return;
+                    }
+
+                    bool installed = false;
+                    
+                    // 使用 ActivateGlobalProgress 安装 Rclone（带进度）
+                    plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                    {
+                        progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgRcloneInstalling");
+                        progressArgs.IsIndeterminate = false;
+                        progressArgs.CurrentProgressValue = 0;
+                        progressArgs.ProgressMaxValue = 100;
+
+                        var progress = new Progress<(string message, int percentage)>(report =>
+                        {
+                            progressArgs.Text = report.message;
+                            if (report.percentage >= 0)
+                            {
+                                progressArgs.CurrentProgressValue = report.percentage;
+                            }
+                        });
+
+                        var installTask = rcloneService.InstallRcloneAsync(progress, progressArgs.CancelToken);
+                        installTask.Wait();
+                        installed = installTask.Result;
+                    }, new Playnite.SDK.GlobalProgressOptions(
+                        ResourceProvider.GetString("LOCSaveManagerMsgRcloneInstalling"), true));
+
+                    if (!installed)
+                    {
+                        plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                            ResourceProvider.GetString("LOCSaveManagerMsgRcloneInstallFailed"),
+                            "Error");
+                        return;
+                    }
+
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgRcloneInstalled"),
+                        ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+
+                var provider = (Models.CloudProvider)CloudProvider;
+                var displayName = Models.CloudProviderHelper.GetDisplayName(provider);
+
+                var confirmResult = plugin.PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfigureCloud"), displayName),
+                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                    System.Windows.MessageBoxButton.OKCancel,
+                    System.Windows.MessageBoxImage.Information);
+
+                if (confirmResult != System.Windows.MessageBoxResult.OK)
+                {
+                    return;
+                }
+
+                bool configured = false;
+
+                // 使用 ActivateGlobalProgress 配置云服务
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfiguringCloud"), displayName);
+                    progressArgs.IsIndeterminate = true;
+
+                    var configTask = rcloneService.ConfigureCloudProviderAsync(provider);
+                    configTask.Wait(); // 同步等待
+                    configured = configTask.Result;
+                }, new Playnite.SDK.GlobalProgressOptions(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgConfiguringCloud"), displayName), false));
+
+                if (configured)
+                {
+                    // 配置完成后先验证连接
+                    bool connectionSuccess = false;
+                    plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                    {
+                        progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgVerifyingCloud");
+                        progressArgs.IsIndeterminate = true;
+                        
+                        var testTask = rcloneService.TestConnectionAsync(provider);
+                        testTask.Wait();
+                        connectionSuccess = testTask.Result;
+                    }, new Playnite.SDK.GlobalProgressOptions(
+                        ResourceProvider.GetString("LOCSaveManagerMsgVerifyingCloud"), false));
+
+                    if (!connectionSuccess)
+                    {
+                        plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                            ResourceProvider.GetString("LOCSaveManagerMsgConnectionFailed"),
+                            ResourceProvider.GetString("LOCSaveManagerError"));
+                        return;
+                    }
+
+                    // 连接验证成功后启用云同步
+                    CloudSyncEnabled = true;
+                    SaveSettings();
+
+                    var cloudSyncManager = plugin.GetCloudSyncManager();
+                    if (cloudSyncManager != null)
+                    {
+                        // 1. 检测云端是否已有 config.json
+                        bool cloudHasData = false;
+                        plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                        {
+                            progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgInitializingCloud");
+                            progressArgs.IsIndeterminate = true;
+
+                            try
+                            {
+                                cloudHasData = System.Threading.Tasks.Task.Run(async () => 
+                                    await rcloneService.RemoteFileExistsAsync("config.json", provider)
+                                ).GetAwaiter().GetResult();
+                            }
+                            catch { }
+                        }, new Playnite.SDK.GlobalProgressOptions(
+                            ResourceProvider.GetString("LOCSaveManagerMsgInitializingCloud"), false));
+
+                        if (cloudHasData)
+                        {
+                            // 云端已有数据，显示三个选项
+                            var options = new List<Playnite.SDK.MessageBoxOption>
+                            {
+                                new Playnite.SDK.MessageBoxOption(
+                                    ResourceProvider.GetString("LOCSaveManagerBtnPullAllData"), true, false),
+                                new Playnite.SDK.MessageBoxOption(
+                                    ResourceProvider.GetString("LOCSaveManagerBtnPullConfigOnly"), false, false),
+                                new Playnite.SDK.MessageBoxOption(
+                                    ResourceProvider.GetString("LOCSaveManagerBtnSkipPull"), false, true)
+                            };
+
+                            var selectedOption = plugin.PlayniteApi.Dialogs.ShowMessage(
+                                ResourceProvider.GetString("LOCSaveManagerMsgCloudHasDataOptions"),
+                                ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                System.Windows.MessageBoxImage.Question,
+                                options);
+
+                            if (selectedOption == options[0])
+                            {
+                                // 拉取所有数据
+                                bool success = false;
+                                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                                {
+                                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPullingData");
+                                    progressArgs.IsIndeterminate = true;
+
+                                    try
+                                    {
+                                        success = System.Threading.Tasks.Task.Run(async () => 
+                                            await cloudSyncManager.PullAllDataFromCloudAsync(null, System.Threading.CancellationToken.None)
+                                        ).GetAwaiter().GetResult();
+                                    }
+                                    catch { }
+                                }, new Playnite.SDK.GlobalProgressOptions(
+                                    ResourceProvider.GetString("LOCSaveManagerMsgPullingData"), false));
+
+                                plugin.PlayniteApi.Dialogs.ShowMessage(
+                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullDataSuccessDetail") 
+                                            : ResourceProvider.GetString("LOCSaveManagerMsgPullDataFailed"),
+                                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                    System.Windows.MessageBoxButton.OK,
+                                    success ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+                            }
+                            else if (selectedOption == options[1])
+                            {
+                                // 仅拉取配置文件
+                                bool success = false;
+                                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                                {
+                                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPullingConfigOnly");
+                                    progressArgs.IsIndeterminate = true;
+
+                                    try
+                                    {
+                                        success = System.Threading.Tasks.Task.Run(async () => 
+                                            await cloudSyncManager.PullConfigOnlyAsync(provider, System.Threading.CancellationToken.None)
+                                        ).GetAwaiter().GetResult();
+                                    }
+                                    catch { }
+                                }, new Playnite.SDK.GlobalProgressOptions(
+                                    ResourceProvider.GetString("LOCSaveManagerMsgPullingConfigOnly"), false));
+
+                                plugin.PlayniteApi.Dialogs.ShowMessage(
+                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullConfigSuccess") 
+                                            : ResourceProvider.GetString("LOCSaveManagerMsgPullDataFailed"),
+                                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                    System.Windows.MessageBoxButton.OK,
+                                    success ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+                            }
+                            else
+                            {
+                                // 暂不拉取
+                                plugin.PlayniteApi.Dialogs.ShowMessage(
+                                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudConfigured"), displayName),
+                                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                    System.Windows.MessageBoxButton.OK,
+                                    System.Windows.MessageBoxImage.Information);
+                            }
+                        }
+                        else
+                        {
+                            // 云端没有数据，先上传 config.json，再询问是否上传备份
+                            plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                            {
+                                progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgInitializingCloud");
+                                progressArgs.IsIndeterminate = true;
+
+                                try
+                                {
+                                    System.Threading.Tasks.Task.Run(async () => 
+                                        await cloudSyncManager.UploadConfigToCloudAsync()
+                                    ).GetAwaiter().GetResult();
+                                }
+                                catch { }
+                            }, new Playnite.SDK.GlobalProgressOptions(
+                                ResourceProvider.GetString("LOCSaveManagerMsgInitializingCloud"), false));
+
+                            // 询问是否上传现有备份
+                            var uploadConfirm = plugin.PlayniteApi.Dialogs.ShowMessage(
+                                ResourceProvider.GetString("LOCSaveManagerMsgConfirmFirstSync"),
+                                ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                System.Windows.MessageBoxButton.YesNo,
+                                System.Windows.MessageBoxImage.Question);
+
+                            if (uploadConfirm == System.Windows.MessageBoxResult.Yes)
+                            {
+                                int uploadedCount = 0;
+
+                                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                                {
+                                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgUploadingBackups");
+                                    progressArgs.IsIndeterminate = true;
+
+                                    try
+                                    {
+                                        uploadedCount = System.Threading.Tasks.Task.Run(async () => 
+                                            await cloudSyncManager.UploadAllBackupsToCloudAsync(null, System.Threading.CancellationToken.None)
+                                        ).GetAwaiter().GetResult();
+                                    }
+                                    catch { }
+                                }, new Playnite.SDK.GlobalProgressOptions(
+                                    ResourceProvider.GetString("LOCSaveManagerMsgUploadingBackups"), false));
+
+                                plugin.PlayniteApi.Dialogs.ShowMessage(
+                                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgFirstSyncComplete"), uploadedCount),
+                                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                    System.Windows.MessageBoxButton.OK,
+                                    System.Windows.MessageBoxImage.Information);
+                            }
+                            else
+                            {
+                                plugin.PlayniteApi.Dialogs.ShowMessage(
+                                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudConfigured"), displayName),
+                                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                                    System.Windows.MessageBoxButton.OK,
+                                    System.Windows.MessageBoxImage.Information);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudConfigFailed"), displayName),
+                        "Error");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to configure cloud provider");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 从云端拉取所有数据
+        /// </summary>
+        private async System.Threading.Tasks.Task PullAllDataAsync()
+        {
+            try
+            {
+                var cloudSyncManager = plugin.GetCloudSyncManager();
+                if (cloudSyncManager == null)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        "Cloud sync not enabled.",
+                        "Error");
+                    return;
+                }
+
+                var confirmResult = plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgConfirmPullAllData"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (confirmResult != System.Windows.MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                bool success = false;
+
+                // 使用 ActivateGlobalProgress 在前台显示进度
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPullingData");
+
+                    var pullTask = cloudSyncManager.PullAllDataFromCloudAsync(
+                        null, 
+                        progressArgs.CancelToken,
+                        (current, total) =>
+                        {
+                            progressArgs.CurrentProgressValue = current;
+                            progressArgs.ProgressMaxValue = total;
+                        });
+                    pullTask.Wait();
+                    success = pullTask.Result;
+                }, new Playnite.SDK.GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgPullingData"), false)
+                {
+                    IsIndeterminate = false
+                });
+
+                if (success)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgPullDataSuccessDetail"),
+                        ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+                else
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgPullDataFailed"),
+                        "Error");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to pull all data");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 推送所有数据到云端
+        /// </summary>
+        private async System.Threading.Tasks.Task PushAllDataAsync()
+        {
+            try
+            {
+                var cloudSyncManager = plugin.GetCloudSyncManager();
+                if (cloudSyncManager == null)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        "Cloud sync not enabled.",
+                        "Error");
+                    return;
+                }
+
+                var confirmResult = plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgConfirmPushAllData"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (confirmResult != System.Windows.MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                int uploadedCount = 0;
+
+                // 使用 ActivateGlobalProgress 在前台显示进度
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPushingData");
+
+                    var pushTask = cloudSyncManager.UploadAllBackupsToCloudAsync(
+                        null, 
+                        progressArgs.CancelToken,
+                        (current, total) =>
+                        {
+                            progressArgs.CurrentProgressValue = current;
+                            progressArgs.ProgressMaxValue = total;
+                        });
+                    pushTask.Wait();
+                    uploadedCount = pushTask.Result;
+                }, new Playnite.SDK.GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgPushingData"), false)
+                {
+                    IsIndeterminate = false
+                });
+
+                plugin.PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgPushDataSuccess"), uploadedCount),
+                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to push all data");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 验证云服务连接
+        /// </summary>
+        private void VerifyCloud()
+        {
+            try
+            {
+                var rcloneService = plugin.GetRcloneService();
+                if (rcloneService == null || !rcloneService.IsRcloneInstalled)
+                {
+                    var msg = ResourceProvider.GetString("LOCSaveManagerMsgRcloneNotInstalled");
+                    plugin.PlayniteApi.Dialogs.ShowMessage(msg, ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"));
+                    return;
+                }
+
+                var provider = (Models.CloudProvider)CloudProvider;
+                var displayName = Models.CloudProviderHelper.GetDisplayName(provider);
+
+                if (!rcloneService.IsConfigured(provider))
+                {
+                    var msg = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudNotConfigured"), displayName);
+                    plugin.PlayniteApi.Dialogs.ShowMessage(msg, ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"));
+                    return;
+                }
+
+                logger.Info("Starting cloud verification...");
+                IsVerifyingCloud = true;
+                Services.RcloneService.CloudVerifyResult result = null;
+                Exception verifyException = null;
+
+                // 使用 ActivateGlobalProgress 显示等待弹窗
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    try
+                    {
+                        // 在线程池中执行，避免死锁
+                        var task = System.Threading.Tasks.Task.Run(async () => 
+                            await rcloneService.VerifyCloudServiceAsync(provider, progressArgs.CancelToken)
+                        );
+                        
+                        // 等待任务完成
+                        while (!task.IsCompleted && !progressArgs.CancelToken.IsCancellationRequested)
+                        {
+                            System.Threading.Thread.Sleep(100);
+                        }
+                        
+                        if (task.Status == System.Threading.Tasks.TaskStatus.RanToCompletion)
+                        {
+                            result = task.Result;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        verifyException = ex;
+                    }
+                }, new Playnite.SDK.GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgVerifyingCloud"), true)
+                {
+                    IsIndeterminate = true
+                });
+
+                // 处理异常
+                if (verifyException != null)
+                {
+                    logger.Error(verifyException, "Failed to verify cloud service");
+                    var errorMsg = $"❌ {verifyException.Message}";
+                    CloudVerifyStatus = errorMsg;
+                    IsVerifyingCloud = false;
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(errorMsg, "Error");
+                    return;
+                }
+
+                if (result == null)
+                {
+                    IsVerifyingCloud = false;
+                    return;
+                }
+
+                // 构建状态信息
+                var statusBuilder = new System.Text.StringBuilder();
+
+                if (result.ConnectionSuccessful)
+                {
+                    statusBuilder.AppendLine($"✅ {displayName} {ResourceProvider.GetString("LOCSaveManagerMsgConnectionSuccess")}");
+                }
+                else
+                {
+                    statusBuilder.AppendLine($"❌ {displayName} {ResourceProvider.GetString("LOCSaveManagerMsgConnectionFailed")}");
+                    if (!string.IsNullOrEmpty(result.ErrorMessage))
+                    {
+                        statusBuilder.AppendLine($"   {result.ErrorMessage}");
+                    }
+                }
+
+                if (result.BackupExists)
+                {
+                    // 转换为本地时间（北京时间）
+                    var localTime = result.BackupModTime?.ToLocalTime();
+                    var timeStr = localTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Unknown";
+                    statusBuilder.AppendLine($"✅ {ResourceProvider.GetString("LOCSaveManagerMsgBackupExists")}: {timeStr}");
+                }
+                else
+                {
+                    statusBuilder.AppendLine($"❌ {ResourceProvider.GetString("LOCSaveManagerMsgNoBackupOnCloud")}");
+                }
+
+                var finalStatus = statusBuilder.ToString().Trim();
+                IsVerifyingCloud = false;
+                logger.Info($"Verification complete: {finalStatus}");
+
+                // 显示结果对话框
+                plugin.PlayniteApi.Dialogs.ShowMessage(
+                    finalStatus,
+                    ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
+                    System.Windows.MessageBoxButton.OK,
+                    result.ConnectionSuccessful ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to verify cloud service");
+                var errorMsg = $"❌ {ex.Message}";
+                IsVerifyingCloud = false;
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(errorMsg, "Error");
+            }
+        }
+
 
         public void BeginEdit()
         {

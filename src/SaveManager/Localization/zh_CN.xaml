@@ -136,4 +136,148 @@
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">导入全局配置</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">全局配置导入成功！&#x0a;&#x0a;请重启Playnite以使更改生效。</sys:String>
 
+    <!-- 云同步相关 -->
+    <sys:String x:Key="LOCSaveManagerMsgSaveConflictOptions">检测到存档冲突！&#x0a;&#x0a;本地存档：{0}，大小：{1}&#x0a;云端存档：{2}，大小：{3}&#x0a;&#x0a;请选择要执行的操作：</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnPullCloud">拉取云端</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnKeepLocalAndPush">保留本地并推送</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnCancel">取消</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushingLocal">正在推送本地存档到云端...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgLocalPushed">本地存档已推送到云端！</sys:String>
+
+    <!-- 删除数据按钮 -->
+    <sys:String x:Key="LOCSaveManagerDeleteLocalData">删除本地数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteLocalDataTooltip">删除所有本地备份和配置数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteCloudData">删除云端数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteCloudDataTooltip">删除云端所有备份数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteCloudData">确定要删除云端所有备份数据吗？&#x0a;&#x0a;此操作无法撤销！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeletingCloudData">正在删除云端数据...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteCloudDataSuccess">云端数据已删除成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteCloudDataFailed">删除云端数据失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudNotEnabled">云同步未启用</sys:String>
+
+    <!-- 打开文件夹 -->
+    <sys:String x:Key="LOCSaveManagerOpenFolderTooltip">在文件资源管理器中打开</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgFolderNotFound">文件夹不存在</sys:String>
+
+    <!-- 游戏匹配相关 -->
+    <sys:String x:Key="LOCSaveManagerGameMatching">游戏匹配</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTooltip">管理云端文件夹与本地游戏的匹配关系</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">检测到云端有未匹配的备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">检测到云端存在以下游戏的备份文件夹，但并未与当前 Playnite 库中的游戏关联。你可以手动进行匹配。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">云端文件夹 - 游戏匹配管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">下方显示了云端所有的备份文件夹。你可以手动关联云端文件夹到本地游戏，或者删除不再需要的云端配置。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingStatus">状态: {0} 个未匹配 / {1} 个已匹配</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">云端游戏配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColStatus">匹配状态</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingColMatch">匹配到本地游戏</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingAutoMatch">尝试对未匹配游戏进行自动匹配</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingPrompt">请选择正确的游戏进行匹配</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingClearMatch">取消匹配</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">匹配关系已成功保存！</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigTooltip">删除此云端配置文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigConfirm">确定要删除云端文件夹 "{0}" 吗？&#x0a;&#x0a;警告：这将永久删除该游戏的所有云端备份文件！此操作不可撤销。</sys:String>
+
+    <!-- 云同步设置 -->
+    <sys:String x:Key="LOCSaveManagerCloudSync">云同步</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleCloudSync">☁️ 云同步</sys:String>
+    <sys:String x:Key="LOCSaveManagerEnableCloudSync">启用云同步 (基于Rclone)</sys:String>
+    <sys:String x:Key="LOCSaveManagerEnableCloudSyncTooltip">启用此选项将使用Rclone进行云端备份同步</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloud">配置 Rclone</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloudTooltip">运行 Rclone 配置向导以连接云盘</sys:String>
+    <sys:String x:Key="LOCSaveManagerCloudProvider">云服务提供商:</sys:String>
+    <sys:String x:Key="LOCSaveManagerCloudProviderTooltip">选择用于同步的云存储服务</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloud">验证连接</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloudTooltip">测试云服务连接状态</sys:String>
+    <sys:String x:Key="LOCSaveManagerPullAllData">从云端拉取所有数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerPullAllDataTooltip">下载云端所有游戏的配置和备份（谨慎使用）</sys:String>
+    <sys:String x:Key="LOCSaveManagerPushAllData">推送到云端 (所有数据)</sys:String>
+    <sys:String x:Key="LOCSaveManagerPushAllDataTooltip">上传所有本地配置和备份到云端</sys:String>
+    
+    <!-- 实时同步 -->
+    <sys:String x:Key="LOCSaveManagerRealtimeSync">实时存档同步</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">游戏启动时从云端下载，结束后上传到云端</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">云同步实时存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">禁用实时同步后，游戏存档将不再自动上传到云端。你仍然可以手动创建备份并上传。</sys:String>
+
+    <!-- 跨设备管理 -->
+    <sys:String x:Key="LOCSaveManagerDataManagement">数据管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">跨设备管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExport">导出全局数据包</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalExportTooltip">导出所有配置和数据用于迁移到新设备</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImport">导入全局数据包</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportTooltip">从数据包完全恢复插件数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDangerZone">⚠️ 危险区域</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllData">删除所有数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllDataTooltip">删除所有本地备份和配置数据（重置插件）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteAllData">警告：确定要删除所有本地数据吗？&#x0a;&#x0a;这将：&#x0a;1. 删除所有游戏的本地备份文件&#x0a;2. 清除所有存档路径配置&#x0a;3. 重置插件设置&#x0a;&#x0a;此操作不可撤销！建议先导出全局配置。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataFailed">删除所有数据失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataSuccessRestart">所有数据已删除。Playnite需要重启以完成重置。&#x0a;&#x0a;点击确定重启Playnite。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmPushAllData">确定要将所有本地数据推送到云端吗？&#x0a;&#x0a;这将上传所有游戏的配置和最新备份。如果云端已有对应文件，将被覆盖。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmPullAllData">警告：确定要从云端拉取所有数据吗？&#x0a;&#x0a;这将：&#x0a;1. 下载云端所有游戏的配置&#x0a;2. 覆盖本地已有的配置&#x0a;&#x0a;建议先进行"推送到云端"以备份当前状态。</sys:String>
+    
+    <!-- 错误与状态消息 -->
+    <sys:String x:Key="LOCSaveManagerError">错误</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRcloneNotInstalled">未检测到 Rclone。需要下载 Rclone 才能使用云同步功能。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInstallRclone">下载 Rclone</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRcloneInstalling">正在下载 Rclone，请稍候...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRcloneInstalled">Rclone 安装成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRcloneInstallFailed">Rclone 安装失败。请检查网络连接或尝试手动安装。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigureCloud">配置向导将在终端窗口中打开。请按照提示完成授权。&#x0a;&#x0a;完成后请在此处点击"验证连接"。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfiguringCloud">正在打开 Rclone 配置向导...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudConfigured">云服务配置似乎已完成。请点击"验证连接"进行确认。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudConfigFailed">云配置向导启动失败。</sys:String>
+     <sys:String x:Key="LOCSaveManagerMsgVerifyingCloud">正在验证云服务连接...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConnectionSuccess">连接成功！云同步已就绪。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConnectionFailed">连接失败。请检查配置或网络。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInitializingCloud">正在初始化云同步服务...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushingData">正在推送数据到云端...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushDataSuccess">数据推送成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullingData">正在从云端拉取数据...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullDataSuccessDetail">成功拉取：{0} 个配置，{1} 个备份。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullDataFailed">拉取数据失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgGameDirNotAvailable">游戏目录不可用 (游戏未安装?)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudHasDataOptions">云端发现此游戏的数据。选择操作：</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnPullConfigOnly">仅拉取配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullingConfigOnly">正在拉取配置...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullConfigSuccess">配置拉取成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnSkipPull">跳过</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupExists">备份已存在: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudNotConfigured">云服务未配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoBackupOnCloud">云端无备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDownloadingBackup">正在下载备份...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDownloadBackupFailed">下载备份失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUploadingBackups">正在上传备份队列...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudUploadSuccess">云端上传成功 ({0})</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">正在同步配置...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullingLatest">正在拉取最新存档...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">首次同步完成</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">这是该游戏的首次云同步。是否要现在拉取云端数据？&#x0a;&#x0a;如果不拉取，本地配置可能会覆盖云端配置。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">已创建实时同步快照: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncPulled">已从云端恢复存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncPullFailed">云存档拉取失败: {0}</sys:String>
+    
+    <!-- 排除项 -->
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">还原排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitleExpanded">▼ 还原排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeHint">在此列表中的文件/文件夹在还原时将不会被覆盖。</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreExcludeEmpty">暂无排除项</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolder">排除非文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFolderTooltip">添加还原时要忽略的文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFile">排除文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerAddExcludeFileTooltip">添加还原时要忽略的文件</sys:String>
+
+    <!-- 强制还原 -->
+    <sys:String x:Key="LOCSaveManagerForceRestore">强制还原</sys:String>
+    <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">忽略所有排除项设置，强制覆盖所有文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">警告：强制还原将覆盖所有文件，包括在排除列表中的文件。&#x0a;&#x0a;确定要继续吗？</sys:String>
+
+    <sys:String x:Key="LOCSaveManagerBtnSave">保存</sys:String>
+
+    <!-- 补充遗漏的键值 -->
+    <sys:String x:Key="LOCSaveManagerTitleWarning">警告</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleSaveConflict">存档冲突</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolder">打开数据文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">打开存储备份数据的文件夹</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnPullAllData">拉取数据</sys:String>
+
 </ResourceDictionary>

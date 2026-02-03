@@ -108,13 +108,22 @@
                                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
                                         </StackPanel>
                                         
-                                        <Button Grid.Column="2" 
-                                                Command="{Binding DataContext.RemovePathCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}"
-                                                Content="✕" 
-                                                ToolTip="{DynamicResource LOCSaveManagerRemoveTooltip}"
-                                                Padding="8,4"
-                                                VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- 打开文件夹按钮（仅文件夹显示） -->
+                                            <Button Command="{Binding DataContext.OpenPathCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="📂" 
+                                                    ToolTip="{DynamicResource LOCSaveManagerOpenFolderTooltip}"
+                                                    Padding="6,4"
+                                                    Margin="0,0,4,0"
+                                                    Visibility="{Binding IsDirectory, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <!-- 删除按钮 -->
+                                            <Button Command="{Binding DataContext.RemovePathCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="✕" 
+                                                    ToolTip="{DynamicResource LOCSaveManagerRemoveTooltip}"
+                                                    Padding="8,4"/>
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -360,7 +369,7 @@
                                             </Grid.ColumnDefinitions>
                                             
                                             <TextBlock Grid.Row="0" Grid.Column="0" 
-                                                       Text="{Binding Name}" FontWeight="Bold"/>
+                                                       Text="{Binding DisplayName}" FontWeight="Bold"/>
                                             <TextBlock Grid.Row="0" Grid.Column="1" 
                                                        Text="{Binding FormattedSize}" 
                                                        Opacity="0.7" FontSize="11"/>

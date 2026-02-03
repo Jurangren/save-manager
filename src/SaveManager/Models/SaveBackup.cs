@@ -107,5 +107,30 @@ namespace SaveManager.Models
         /// 格式化的创建时间
         /// </summary>
         public string FormattedDate => CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
+
+        /// <summary>
+        /// 检查本地备份文件是否存在
+        /// 使用 FullPath（如果设置）否则用 BackupFilePath
+        /// </summary>
+        public bool IsLocalFileExists
+        {
+            get
+            {
+                var pathToCheck = !string.IsNullOrEmpty(FullPath) ? FullPath : BackupFilePath;
+                return !string.IsNullOrEmpty(pathToCheck) && System.IO.File.Exists(pathToCheck);
+            }
+        }
+
+        /// <summary>
+        /// 完整路径（由 ViewModel 设置，用于检查本地文件是否存在）
+        /// 不序列化到文件
+        /// </summary>
+        [Playnite.SDK.Data.DontSerialize]
+        public string FullPath { get; set; }
+
+        /// <summary>
+        /// 显示名称（如果是云端备份，前面加云图标）
+        /// </summary>
+        public string DisplayName => IsLocalFileExists ? Name : $"☁️ {Name}";
     }
 }

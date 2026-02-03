@@ -112,6 +112,30 @@ namespace SaveManager.Models
         /// </summary>
         public bool DisableAutoMatch { get; set; } = false;
 
+        #region 云同步字段
+
+        /// <summary>
+        /// 云端 Latest 备份的 CRC（从云端 config.json 同步）
+        /// </summary>
+        public string CloudLatestCRC { get; set; }
+
+        /// <summary>
+        /// 云端 Latest 备份的版本历史 CRC 列表（从云端 config.json 同步）
+        /// </summary>
+        public List<string> CloudVersionHistory { get; set; } = new List<string>();
+
+        /// <summary>
+        /// 云端 Latest 备份的时间（从云端 config.json 同步）
+        /// </summary>
+        public DateTime? CloudLatestTime { get; set; }
+
+        /// <summary>
+        /// 云端 Latest 备份的大小（从云端 config.json 同步）
+        /// </summary>
+        public long? CloudLatestSize { get; set; }
+
+        #endregion
+
         /// <summary>
         /// 添加 GameId 到排除列表
         /// </summary>
