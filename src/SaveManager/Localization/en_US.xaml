@@ -21,16 +21,6 @@
     <sys:String x:Key="LOCSaveManagerExportConfigTooltip">Export current path config</sys:String>
     <sys:String x:Key="LOCSaveManagerSaveConfig">Save Config</sys:String>
 
-    <!-- Restore Exclude Paths -->
-    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">🚫 Restore Exclusions</sys:String>
-    <sys:String x:Key="LOCSaveManagerRestoreExcludeTitleExpanded">🚫 Restore Exclusions</sys:String>
-    <sys:String x:Key="LOCSaveManagerRestoreExcludeHint">Files/folders below will be preserved and not overwritten during restore. Typically used for game configuration files.</sys:String>
-    <sys:String x:Key="LOCSaveManagerRestoreExcludeEmpty">No exclusions</sys:String>
-    <sys:String x:Key="LOCSaveManagerAddExcludeFolder">Add Folder</sys:String>
-    <sys:String x:Key="LOCSaveManagerAddExcludeFile">Add File</sys:String>
-    <sys:String x:Key="LOCSaveManagerAddExcludeFolderTooltip">Add folder to exclude from restore</sys:String>
-    <sys:String x:Key="LOCSaveManagerAddExcludeFileTooltip">Add file to exclude from restore</sys:String>
-
     <!-- Backup Management -->
     <sys:String x:Key="LOCSaveManagerBackupManagementTitle">Backup Management</sys:String>
     <sys:String x:Key="LOCSaveManagerCreateNewBackup">Create New Backup</sys:String>
@@ -59,13 +49,6 @@
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">Max auto-backups per game. Old backups will be auto-deleted when exceeded. 0 for unlimited.</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(per game, 0=unlimited, auto-deletes oldest)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalExport">Global Export</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalExportTooltip">Export all configurations and backup data to a ZIP file</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalImport">Global Import</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalImportTooltip">Import all configurations and backup data from a ZIP file</sys:String>
-    <sys:String x:Key="LOCSaveManagerOpenDataFolder">Open Data Folder</sys:String>
-    <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">Open the plugin data storage directory</sys:String>
-    <sys:String x:Key="LOCSaveManagerDataManagement">Data Management</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">Auto backup after {0} minutes of gameplay</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[SaveManager] Auto backup created for "{0}" - {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[SaveManager] Auto backup failed for "{0}": {1}</sys:String>
@@ -80,15 +63,13 @@
     <sys:String x:Key="LOCSaveManagerMenuQuickBackup">Quick Backup</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuQuickRestore">Quick Restore (Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerMenuAbout">About Save Manager</sys:String>
-    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.4
+    <sys:String x:Key="LOCSaveManagerAboutContent">Save Manager v1.0.3
 
 A Playnite plugin for managing game save backups.
 
 Features:
 • Configure save paths (folders and files) for each game
 • Create save backups (ZIP format)
-• Auto-backup on game exit with rotation (keep specified count)
-• Restore exclusions: keep specific config files/folders during restore
 • Add notes to backups
 • One-click restore to any backup
 
@@ -112,7 +93,7 @@ Usage: Right-click game -> Save Manager -> Save Management</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogImportConfig">Configuration File (*.json)|*.json</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgImportConfirm">Imported {0} paths from file.&#x0a;This will overwrite current configuration. Continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleConfirmImport">Confirm Import</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">Configuration imported successfully.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgImportSuccess">Configuration imported successfully. Please remember to save.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgInvalidConfig">Invalid configuration file format.</sys:String>
     <sys:String x:Key="LOCSaveManagerDialogExportConfig">Export Save Path Config</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgExportNoPaths">No paths configured to export.</sys:String>
@@ -153,43 +134,6 @@ For cross-machine backup, paths in the configuration may not exist, which could 
 
 Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">Import Global Config</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;All configurations and backups have been reloaded.</sys:String>
-
-    <!-- Cross-Device Management -->
-    <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">Cross-Device Management</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatching">Game Matching</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingTooltip">Manage game matching for cross-device sync</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingPrompt">Import completed. Would you like to match imported configurations with games on this device?</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">Game Matching - Full View</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">Game Matching</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">Manage all game configurations and their matching status. You can modify existing matches.</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">Some imported configurations need to be matched with games on this device. Please select the corresponding game for each configuration.</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">Configuration</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingColStatus">Status</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingColMatch">Match Game</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingClearMatch">Clear Match</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingAutoMatch">Auto Match</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingStatus">Total {0} configurations, {1} unmatched</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">Successfully updated {0} game matchings.</sys:String>
-    <sys:String x:Key="LOCSaveManagerBtnSave">Save</sys:String>
-    <sys:String x:Key="LOCSaveManagerBtnCancel">Cancel</sys:String>
-
-    <sys:String x:Key="LOCSaveManagerForceRestore">Force Restore</sys:String>
-    <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">Force Restore (Ignores all exclusion rules)</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">Are you sure you want to force restore this backup?&#x0a;This will overwrite ALL save files, including those in exclusion list.&#x0a;This action cannot be undone!</sys:String>
-
-    <sys:String x:Key="LOCSaveManagerRealtimeSync">Real-time Save Sync on Game Start/Exit</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">When enabled, automatically creates a Latest.zip snapshot after each game session to track progress history</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">Latest Real-time Save Snapshot</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">Real-time sync snapshot created: Latest.zip</sys:String>
-    <sys:String x:Key="LOCSaveManagerTitleWarning">Warning</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">Disabling real-time sync will cause the following issues:&#x0a;&#x0a;• Save CRC version information will not be recorded&#x0a;• Version history will not be maintained&#x0a;• Frequent conflict prompts when restoring saves across devices&#x0a;• Frequent conflict prompts will appear when restoring backups&#x0a;&#x0a;It is strongly recommended NOT to disable this feature!&#x0a;&#x0a;Are you sure you want to disable real-time sync?</sys:String>
-
-    <sys:String x:Key="LOCSaveManagerDangerZone">Danger Zone</sys:String>
-    <sys:String x:Key="LOCSaveManagerDeleteAllData">Delete All Data</sys:String>
-    <sys:String x:Key="LOCSaveManagerDeleteAllDataTooltip">Delete all Save Manager configurations and backup data (irreversible)</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteAllData">⚠️ Warning: This will permanently delete:&#x0a;&#x0a;• All game save configurations&#x0a;• All created backup files&#x0a;• All plugin settings&#x0a;&#x0a;This action cannot be undone!&#x0a;&#x0a;Are you sure you want to delete all data?</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataSuccess">All data has been successfully deleted and reset.</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataFailed">Failed to delete data:</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;Please restart Playnite for changes to take effect.</sys:String>
 
 </ResourceDictionary>
