@@ -174,4 +174,8 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnSave">Save</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnCancel">Cancel</sys:String>
 
+    <sys:String x:Key="LOCSaveManagerForceRestore">Force Restore</sys:String>
+    <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">Force Restore (Ignores all exclusion rules)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">Are you sure you want to force restore this backup?&#x0a;This will overwrite ALL save files, including those in exclusion list.&#x0a;This action cannot be undone!</sys:String>
+
 </ResourceDictionary>

@@ -113,6 +113,7 @@ namespace SaveManager.ViewModels
         public ICommand ImportConfigCommand { get; }
         public ICommand ExportConfigCommand { get; }
         public ICommand ImportBackupCommand { get; }
+        public ICommand ForceRestoreBackupCommand { get; }
 
         // 还原排除项命令
         public ICommand AddExcludeFolderCommand { get; }
@@ -144,6 +145,7 @@ namespace SaveManager.ViewModels
             ImportConfigCommand = new RelayCommand(ImportConfig);
             ExportConfigCommand = new RelayCommand(ExportConfig);
             ImportBackupCommand = new RelayCommand(ImportBackup);
+            ForceRestoreBackupCommand = new RelayCommand(ForceRestoreBackup, () => IsSingleBackupSelected);
 
             // 还原排除项命令
             AddExcludeFolderCommand = new RelayCommand(AddExcludeFolder);
@@ -649,6 +651,33 @@ namespace SaveManager.ViewModels
             }
         }
 
+        private void ForceRestoreBackup()
+        {
+            var backup = SelectedBackups.FirstOrDefault();
+            if (backup == null) return;
+
+            // 确认还原（强制）
+            var result = playniteApi.Dialogs.ShowMessage(
+                ResourceProvider.GetString("LOCSaveManagerMsgConfirmForceRestore"), 
+                ResourceProvider.GetString("LOCSaveManagerTitleConfirmRestore"), 
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    // 传递 null 以忽略排除项
+                    backupService.RestoreBackup(backup, null);
+                    playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+                }
+            }
+        }
+
         private void RestoreBackup()
         {
             var backup = SelectedBackups.FirstOrDefault();
@@ -781,15 +810,46 @@ namespace SaveManager.ViewModels
 
         private void OpenBackupFolder()
         {
-            var backupsPath = backupService.GetGameBackupDirectoryByGameId(game.Id, game.Name);
+            string backupsPath = null;
             
-            if (!Directory.Exists(backupsPath))
+            // 优先从现有的备份记录中获取目录（应对游戏名称变更或异地迁移的情况）
+            if (Backups != null && Backups.Count > 0)
             {
-                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoBackupsFound"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
+                var latestBackup = Backups[0];
+                var fullPath = backupService.GetFullBackupPath(latestBackup.BackupFilePath);
+                if (!string.IsNullOrEmpty(fullPath))
+                {
+                    backupsPath = Path.GetDirectoryName(fullPath);
+                }
+            }
+
+            // 如果无法从备份获取，或者目录不存在（可能被删除了），尝试回退到标准生成规则
+            if (string.IsNullOrEmpty(backupsPath) || !Directory.Exists(backupsPath))
+            {
+                backupsPath = backupService.GetGameBackupDirectoryByGameId(game.Id, game.Name);
             }
             
-            System.Diagnostics.Process.Start("explorer.exe", backupsPath);
+            // 尝试创建目录（如果不存在），方便用户手动管理
+            if (!Directory.Exists(backupsPath))
+            {
+                try
+                {
+                    Directory.CreateDirectory(backupsPath);
+                }
+                catch
+                {
+                    // Ignore creation errors
+                }
+            }
+
+            if (Directory.Exists(backupsPath))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", backupsPath);
+            }
+            else
+            {
+                playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoBackupsFound"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         /// <summary>

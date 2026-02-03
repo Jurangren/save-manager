@@ -177,4 +177,8 @@
     <sys:String x:Key="LOCSaveManagerBtnSave">保存</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnCancel">取消</sys:String>
 
+    <sys:String x:Key="LOCSaveManagerForceRestore">强制还原</sys:String>
+    <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">强制还原 (无视所有排除项规则)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">您确定要强制还原此备份吗？&#x0a;这将覆盖当前所有的存档文件，包括配置了排除项的文件。&#x0a;此操作不可撤销！</sys:String>
+
 </ResourceDictionary>

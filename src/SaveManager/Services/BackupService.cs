@@ -170,6 +170,37 @@ namespace SaveManager.Services
         }
 
         /// <summary>
+        /// 获取备份文件的完整路径
+        /// </summary>
+        public string GetFullBackupPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            if (Path.IsPathRooted(path)) return path; // 已经是绝对路径
+            return Path.Combine(dataPath, path);
+        }
+
+        /// <summary>
+        /// 获取相对于数据目录的路径
+        /// </summary>
+        public string GetRelativeBackupPath(string fullPath)
+        {
+            if (string.IsNullOrEmpty(fullPath)) return null;
+            
+            string baseDir = dataPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            
+            if (fullPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+            {
+                string relative = fullPath.Substring(baseDir.Length);
+                if (relative.StartsWith(Path.DirectorySeparatorChar.ToString()) || relative.StartsWith(Path.AltDirectorySeparatorChar.ToString()))
+                {
+                    relative = relative.Substring(1);
+                }
+                return relative;
+            }
+            return fullPath;
+        }
+
+        /// <summary>
         /// 保存数据
         /// </summary>
         private void SaveData()
@@ -276,12 +307,13 @@ namespace SaveManager.Services
                 {
                     try
                     {
-                        if (File.Exists(backup.BackupFilePath))
+                        var fullPath = GetFullBackupPath(backup.BackupFilePath);
+                        if (File.Exists(fullPath))
                         {
-                            File.Delete(backup.BackupFilePath);
+                            File.Delete(fullPath);
                         }
                         
-                        var dir = Path.GetDirectoryName(backup.BackupFilePath);
+                        var dir = Path.GetDirectoryName(fullPath);
                         if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
                         {
                             directoriesToDelete.Add(dir);
@@ -426,13 +458,16 @@ namespace SaveManager.Services
             };
 
             var backupFileName = $"{backup.Name}.zip";
-            backup.BackupFilePath = Path.Combine(gameBackupPath, backupFileName);
+            var fullBackupPath = Path.Combine(gameBackupPath, backupFileName);
+            
+            // 存储相对路径
+            backup.BackupFilePath = GetRelativeBackupPath(fullBackupPath);
 
             // 创建ZIP文件（包含备份信息）
-            CreateZipBackup(config.SavePaths, backup.BackupFilePath, installDir, gameName, description ?? "");
+            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, gameName, description ?? "");
 
             // 获取文件大小
-            var fileInfo = new FileInfo(backup.BackupFilePath);
+            var fileInfo = new FileInfo(fullBackupPath);
             backup.FileSize = fileInfo.Length;
 
             // 保存备份记录
@@ -443,7 +478,7 @@ namespace SaveManager.Services
             gameBackups[config.ConfigId].Add(backup);
             SaveData();
 
-            logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {backup.BackupFilePath}");
+            logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {fullBackupPath}");
             return backup;
         }
 
@@ -531,9 +566,10 @@ namespace SaveManager.Services
         /// <param name="excludePaths">还原排除项（可选），这些路径将保持当前状态不被覆盖</param>
         public void RestoreBackup(SaveBackup backup, List<SavePath> excludePaths = null)
         {
-            if (!File.Exists(backup.BackupFilePath))
+            var fullPath = GetFullBackupPath(backup.BackupFilePath);
+            if (!File.Exists(fullPath))
             {
-                throw new FileNotFoundException($"Backup file not found: {backup.BackupFilePath}");
+                throw new FileNotFoundException($"Backup file not found: {fullPath}");
             }
 
             // 尝试获取游戏安装目录 - 首先尝试通过 GameId，然后通过 ConfigId 查找任意匹配的游戏
@@ -574,7 +610,7 @@ namespace SaveManager.Services
                 }
             }
 
-            using (var zip = ZipFile.OpenRead(backup.BackupFilePath))
+            using (var zip = ZipFile.OpenRead(fullPath))
             {
                 // 读取路径映射
                 var mappingEntry = zip.GetEntry("__save_paths__.json");
@@ -794,7 +830,7 @@ namespace SaveManager.Services
                 GameId = gameId,
                 Name = backupName,
                 Description = importedDescription,
-                BackupFilePath = destPath,
+                BackupFilePath = GetRelativeBackupPath(destPath),
                 CreatedAt = importedCreatedAt,
                 FileSize = fileInfo.Length
             };
@@ -816,9 +852,10 @@ namespace SaveManager.Services
         /// </summary>
         public void DeleteBackup(SaveBackup backup)
         {
-            if (File.Exists(backup.BackupFilePath))
+            var fullPath = GetFullBackupPath(backup.BackupFilePath);
+            if (File.Exists(fullPath))
             {
-                File.Delete(backup.BackupFilePath);
+                File.Delete(fullPath);
             }
 
             // 优先使用 ConfigId，如果没有则通过 GameId 查找
@@ -835,7 +872,7 @@ namespace SaveManager.Services
                 {
                     try
                     {
-                        var backupDir = Path.GetDirectoryName(backup.BackupFilePath);
+                        var backupDir = Path.GetDirectoryName(fullPath);
                         if (Directory.Exists(backupDir) && !Directory.EnumerateFileSystemEntries(backupDir).Any())
                         {
                             Directory.Delete(backupDir);
@@ -887,9 +924,10 @@ namespace SaveManager.Services
             // 2. 同步更新 ZIP 文件内的 metadata
             try
             {
-                if (File.Exists(backup.BackupFilePath))
+                var fullPath = GetFullBackupPath(backup.BackupFilePath);
+                if (File.Exists(fullPath))
                 {
-                    using (var zip = ZipFile.Open(backup.BackupFilePath, ZipArchiveMode.Update))
+                    using (var zip = ZipFile.Open(fullPath, ZipArchiveMode.Update))
                     {
                         var entry = zip.GetEntry("backup_info.json");
                         if (entry != null)
@@ -997,10 +1035,11 @@ namespace SaveManager.Services
                 {
                     try
                     {
+                        var fullPath = GetFullBackupPath(backup.BackupFilePath);
                         // 删除物理文件
-                        if (File.Exists(backup.BackupFilePath))
+                        if (File.Exists(fullPath))
                         {
-                            File.Delete(backup.BackupFilePath);
+                            File.Delete(fullPath);
                         }
                         
                         // 从列表中移除
@@ -1019,7 +1058,7 @@ namespace SaveManager.Services
                 // 检查备份目录是否为空，如果为空则删除
                 if (backups.Count == 0)
                 {
-                    var backupDir = Path.GetDirectoryName(backupsToDelete.FirstOrDefault()?.BackupFilePath);
+                    var backupDir = Path.GetDirectoryName(GetFullBackupPath(backupsToDelete.FirstOrDefault()?.BackupFilePath));
                     if (!string.IsNullOrEmpty(backupDir) && Directory.Exists(backupDir) && !Directory.EnumerateFileSystemEntries(backupDir).Any())
                     {
                         Directory.Delete(backupDir);
