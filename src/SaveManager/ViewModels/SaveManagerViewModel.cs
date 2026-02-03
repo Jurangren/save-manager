@@ -137,7 +137,7 @@ namespace SaveManager.ViewModels
             AddFileCommand = new RelayCommand(AddFile);
             RemovePathCommand = new RelayCommand<SavePathItem>(RemovePath);
             CreateBackupCommand = new RelayCommand(CreateBackup, () => HasSavePaths);
-            RestoreBackupCommand = new RelayCommand(RestoreBackup, () => IsSingleBackupSelected);
+            RestoreBackupCommand = new RelayCommand(RestoreBackup, () => IsSingleBackupSelected && SelectedBackups.FirstOrDefault()?.Name != "Latest");
             DeleteBackupCommand = new RelayCommand(DeleteBackup, () => IsBackupSelected);
             OpenBackupFolderCommand = new RelayCommand(OpenBackupFolder);
             SaveConfigCommand = new RelayCommand(SaveConfig);
@@ -145,7 +145,7 @@ namespace SaveManager.ViewModels
             ImportConfigCommand = new RelayCommand(ImportConfig);
             ExportConfigCommand = new RelayCommand(ExportConfig);
             ImportBackupCommand = new RelayCommand(ImportBackup);
-            ForceRestoreBackupCommand = new RelayCommand(ForceRestoreBackup, () => IsSingleBackupSelected);
+            ForceRestoreBackupCommand = new RelayCommand(ForceRestoreBackup, () => IsSingleBackupSelected && SelectedBackups.FirstOrDefault()?.Name != "Latest");
 
             // 还原排除项命令
             AddExcludeFolderCommand = new RelayCommand(AddExcludeFolder);

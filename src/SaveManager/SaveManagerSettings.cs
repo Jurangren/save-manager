@@ -66,6 +66,37 @@ namespace SaveManager
             set => SetValue(ref maxBackupCount, value);
         }
 
+        // 实时同步设置（默认启用）
+        private bool realtimeSyncEnabled = true;
+
+        /// <summary>
+        /// 游戏前后实时同步游玩存档
+        /// </summary>
+        public bool RealtimeSyncEnabled
+        {
+            get => realtimeSyncEnabled;
+            set
+            {
+                // 如果用户尝试从启用改为禁用，弹出警告
+                if (realtimeSyncEnabled && !value && plugin?.PlayniteApi != null)
+                {
+                    var result = plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgDisableRealtimeSyncWarning"),
+                        ResourceProvider.GetString("LOCSaveManagerTitleWarning"),
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Warning);
+
+                    // 如果用户选择"否"，则不修改设置
+                    if (result == System.Windows.MessageBoxResult.No)
+                    {
+                        return;
+                    }
+                }
+
+                SetValue(ref realtimeSyncEnabled, value);
+            }
+        }
+
         // 用于存储备份的原始值
         [DontSerialize]
         private string editingCustomBackupPath;
@@ -75,6 +106,8 @@ namespace SaveManager
         private bool editingConfirmBeforeBackup;
         [DontSerialize]
         private int editingMaxBackupCount;
+        [DontSerialize]
+        private bool editingRealtimeSyncEnabled;
 
         // 命令
         [DontSerialize]
@@ -87,6 +120,8 @@ namespace SaveManager
         public ICommand OpenDataFolderCommand { get; }
         [DontSerialize]
         public ICommand OpenGameMatchingCommand { get; }
+        [DontSerialize]
+        public ICommand DeleteAllDataCommand { get; }
 
         /// <summary>
         /// 无参构造函数（序列化需要）
@@ -108,6 +143,7 @@ namespace SaveManager
             GlobalImportCommand = new Playnite.SDK.RelayCommand(() => GlobalImport());
             OpenDataFolderCommand = new Playnite.SDK.RelayCommand(() => OpenDataFolder());
             OpenGameMatchingCommand = new Playnite.SDK.RelayCommand(() => OpenGameMatching());
+            DeleteAllDataCommand = new Playnite.SDK.RelayCommand(() => DeleteAllData());
 
             // 加载保存的设置（使用自定义方法）
             LoadSettings();
@@ -139,6 +175,7 @@ namespace SaveManager
                         AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
                         ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
                         MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
+                        RealtimeSyncEnabled = savedSettings.RealtimeSyncEnabled;
                     }
                 }
             }
@@ -220,6 +257,39 @@ namespace SaveManager
             plugin?.OpenGameMatchingWindow(fullMode: true);
         }
 
+        /// <summary>
+        /// 删除所有数据（配置和备份）
+        /// </summary>
+        private void DeleteAllData()
+        {
+            try
+            {
+                var result = plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgConfirmDeleteAllData"),
+                    ResourceProvider.GetString("LOCSaveManagerTitleWarning"),
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    plugin?.DeleteAllPluginData();
+                    
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgDeleteAllDataSuccess"),
+                        "Save Manager",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to delete all data");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                    $"{ResourceProvider.GetString("LOCSaveManagerMsgDeleteAllDataFailed")}\n{ex.Message}",
+                    "Error");
+            }
+        }
+
         public void BeginEdit()
         {
             // 保存当前值用于取消时恢复
@@ -227,6 +297,7 @@ namespace SaveManager
             editingAutoBackupOnGameExit = AutoBackupOnGameExit;
             editingConfirmBeforeBackup = ConfirmBeforeBackup;
             editingMaxBackupCount = MaxAutoBackupCount;
+            editingRealtimeSyncEnabled = RealtimeSyncEnabled;
         }
 
         public void CancelEdit()
@@ -236,6 +307,7 @@ namespace SaveManager
             AutoBackupOnGameExit = editingAutoBackupOnGameExit;
             ConfirmBeforeBackup = editingConfirmBeforeBackup;
             MaxAutoBackupCount = editingMaxBackupCount;
+            RealtimeSyncEnabled = editingRealtimeSyncEnabled;
         }
 
         public void EndEdit()

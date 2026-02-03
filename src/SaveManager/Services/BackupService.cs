@@ -19,6 +19,7 @@ namespace SaveManager.Services
         private readonly string dataPath;
         private readonly string backupsPath;
         private readonly string configPath;
+        private readonly Func<bool> getRealtimeSyncEnabled;
 
         // 使用 ConfigId 作为主键存储配置
         private Dictionary<Guid, GameSaveConfig> gameConfigs;
@@ -37,13 +38,14 @@ namespace SaveManager.Services
         /// </summary>
         private const int CurrentDataVersion = 2;
 
-        public BackupService(string dataPath, ILogger logger, IPlayniteAPI playniteApi)
+        public BackupService(string dataPath, ILogger logger, IPlayniteAPI playniteApi, Func<bool> getRealtimeSyncEnabled = null)
         {
             this.logger = logger;
             this.playniteApi = playniteApi;
             this.dataPath = dataPath;
             this.backupsPath = Path.Combine(dataPath, "Backups");
             this.configPath = Path.Combine(dataPath, "config.json");
+            this.getRealtimeSyncEnabled = getRealtimeSyncEnabled;
 
             // 确保目录存在
             Directory.CreateDirectory(backupsPath);
@@ -198,6 +200,62 @@ namespace SaveManager.Services
                 return relative;
             }
             return fullPath;
+        }
+
+        /// <summary>
+        /// 计算备份文件内容的 CRC32 校验值
+        /// 排除元数据文件：backup_info.json 和 __save_paths__.json
+        /// </summary>
+        private string ComputeCrc32(string filePath)
+        {
+            const uint polynomial = 0xEDB88320;
+            uint[] table = new uint[256];
+
+            // 构建 CRC32 查找表
+            for (uint i = 0; i < 256; i++)
+            {
+                uint crc = i;
+                for (int j = 0; j < 8; j++)
+                {
+                    if ((crc & 1) != 0)
+                        crc = (crc >> 1) ^ polynomial;
+                    else
+                        crc >>= 1;
+                }
+                table[i] = crc;
+            }
+
+            // 计算 ZIP 内容的 CRC32
+            using (var archive = ZipFile.OpenRead(filePath))
+            {
+                // 筛选并排序 Entry，确保确定性
+                var entries = archive.Entries
+                    .Where(e => !e.FullName.EndsWith("/") && // 忽略文件夹 Entry
+                                !e.Name.Equals("backup_info.json", StringComparison.OrdinalIgnoreCase) && 
+                                !e.Name.Equals("__save_paths__.json", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase);
+
+                uint crc = 0xFFFFFFFF;
+                byte[] buffer = new byte[8192];
+
+                foreach (var entry in entries)
+                {
+                    using (var stream = entry.Open())
+                    {
+                        int bytesRead;
+                        while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            for (int k = 0; k < bytesRead; k++)
+                            {
+                                byte index = (byte)(((crc) & 0xFF) ^ buffer[k]);
+                                crc = (crc >> 8) ^ table[index];
+                            }
+                        }
+                    }
+                }
+
+                return (~crc).ToString("X8");
+            }
         }
 
         /// <summary>
@@ -470,6 +528,34 @@ namespace SaveManager.Services
             var fileInfo = new FileInfo(fullBackupPath);
             backup.FileSize = fileInfo.Length;
 
+            // 计算备份文件的 CRC32 校验值
+            backup.CRC = ComputeCrc32(fullBackupPath);
+
+            // 如果启用了实时同步，继承 Latest.zip 的 VersionHistory
+            bool isRealtimeSyncEnabled = getRealtimeSyncEnabled?.Invoke() ?? false;
+            if (isRealtimeSyncEnabled)
+            {
+                // 查找 Latest.zip 备份
+                SaveBackup latestBackup = null;
+                if (gameBackups.ContainsKey(config.ConfigId))
+                {
+                    latestBackup = gameBackups[config.ConfigId]
+                        .FirstOrDefault(b => b.Name == "Latest");
+                }
+
+                // 继承 Latest.zip 的 VersionHistory
+                if (latestBackup != null && latestBackup.VersionHistory != null && latestBackup.VersionHistory.Count > 0)
+                {
+                    backup.VersionHistory.AddRange(latestBackup.VersionHistory);
+                }
+            }
+
+            // 添加当前备份的 CRC 到历史（去重：如果与最后一个相同则不添加）
+            if (backup.VersionHistory.Count == 0 || backup.VersionHistory.Last() != backup.CRC)
+            {
+                backup.VersionHistory.Add(backup.CRC);
+            }
+
             // 保存备份记录
             if (!gameBackups.ContainsKey(config.ConfigId))
             {
@@ -478,7 +564,184 @@ namespace SaveManager.Services
             gameBackups[config.ConfigId].Add(backup);
             SaveData();
 
-            logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {fullBackupPath}");
+            // 如果启用了实时同步，将此备份复制为 Latest.zip
+            if (isRealtimeSyncEnabled)
+            {
+                try
+                {
+                    CopyBackupToLatest(backup, config, gameName, fullBackupPath);
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn(ex, $"Failed to copy backup to Latest.zip for game {gameName}");
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"Failed to update Latest.zip: {ex.Message}", 
+                        "Real-time Sync Error");
+                }
+            }
+
+            logger.Info($"Created {(isAutoBackup ? "auto" : "manual")} backup for game {gameName}: {fullBackupPath} (CRC: {backup.CRC}, History: {backup.VersionHistory.Count})");
+            return backup;
+        }
+
+        /// <summary>
+        /// 将备份复制为 Latest.zip（用于实时同步）
+        /// </summary>
+        private void CopyBackupToLatest(SaveBackup sourceBackup, GameSaveConfig config, string gameName, string sourceFilePath)
+        {
+            var gameBackupPath = GetGameBackupDirectory(config.ConfigId, gameName);
+            var latestFileName = "Latest.zip";
+            var latestFullPath = Path.Combine(gameBackupPath, latestFileName);
+
+            // 复制文件
+            File.Copy(sourceFilePath, latestFullPath, overwrite: true);
+
+            // 查找并移除旧的 Latest 记录
+            if (gameBackups.ContainsKey(config.ConfigId))
+            {
+                var oldLatest = gameBackups[config.ConfigId]
+                    .FirstOrDefault(b => b.Name == "Latest");
+                
+                if (oldLatest != null)
+                {
+                    gameBackups[config.ConfigId].Remove(oldLatest);
+                }
+            }
+
+            // 创建新的 Latest 记录（使用相同的 VersionHistory 和 CRC）
+            var latestBackup = new SaveBackup
+            {
+                ConfigId = config.ConfigId,
+                GameId = sourceBackup.GameId,
+                Name = "Latest",
+                Description = ResourceProvider.GetString("LOCSaveManagerRealtimeSyncDescription"),
+                CreatedAt = sourceBackup.CreatedAt,
+                BackupFilePath = GetRelativeBackupPath(latestFullPath),
+                FileSize = sourceBackup.FileSize,
+                CRC = sourceBackup.CRC,
+                IsAutoBackup = false
+            };
+
+            // 复制 VersionHistory
+            latestBackup.VersionHistory.AddRange(sourceBackup.VersionHistory);
+
+            // 添加 Latest 记录
+            if (!gameBackups.ContainsKey(config.ConfigId))
+            {
+                gameBackups[config.ConfigId] = new List<SaveBackup>();
+            }
+            gameBackups[config.ConfigId].Add(latestBackup);
+            SaveData();
+
+            logger.Info($"Copied backup to Latest.zip for game {gameName} (CRC: {latestBackup.CRC}, History: {latestBackup.VersionHistory.Count})");
+        }
+
+        /// <summary>
+        /// 创建实时同步快照 (Latest.zip)
+        /// </summary>
+        /// <param name="gameId">游戏ID</param>
+        /// <param name="gameName">游戏名称</param>
+        /// <param name="baseVersionHistory">基础版本历史（可选）。如果提供，将继承此历史；否则从现有的 Latest.zip 继承。</param>
+        public SaveBackup CreateRealtimeSyncSnapshot(Guid gameId, string gameName, List<string> baseVersionHistory = null)
+        {
+            var config = GetGameConfig(gameId);
+            if (config == null || config.SavePaths.Count == 0)
+            {
+                throw new InvalidOperationException("No save paths configured for this game.");
+            }
+
+            var game = playniteApi.Database.Games.Get(gameId);
+            var installDir = game?.InstallDirectory;
+
+            // 验证路径存在
+            foreach (var savePath in config.SavePaths)
+            {
+                var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
+                
+                if (savePath.IsDirectory && !Directory.Exists(absolutePath))
+                {
+                    throw new FileNotFoundException($"Save directory not found: {absolutePath}");
+                }
+                if (!savePath.IsDirectory && !File.Exists(absolutePath))
+                {
+                    throw new FileNotFoundException($"Save file not found: {absolutePath}");
+                }
+            }
+
+            // 创建游戏专属备份文件夹
+            var gameBackupPath = GetGameBackupDirectory(config.ConfigId, gameName);
+            Directory.CreateDirectory(gameBackupPath);
+
+            // 确定 VersionHistory 的继承来源
+            List<string> inheritedHistory = new List<string>();
+            SaveBackup previousLatest = null;
+            
+            // 查找现有的 Latest 记录（用于稍后替换）
+            if (gameBackups.ContainsKey(config.ConfigId))
+            {
+                previousLatest = gameBackups[config.ConfigId]
+                    .FirstOrDefault(b => b.Name == "Latest");
+            }
+
+            if (baseVersionHistory != null)
+            {
+                // 如果指定了基础历史，直接使用
+                inheritedHistory.AddRange(baseVersionHistory);
+            }
+            else if (previousLatest != null && previousLatest.VersionHistory != null)
+            {
+                // 否则，从现有的 Latest.zip 继承
+                inheritedHistory.AddRange(previousLatest.VersionHistory);
+            }
+
+            // 创建新的实时同步备份
+            var backup = new SaveBackup
+            {
+                ConfigId = config.ConfigId,
+                GameId = gameId,
+                Name = "Latest",
+                Description = ResourceProvider.GetString("LOCSaveManagerRealtimeSyncDescription"),
+                CreatedAt = DateTime.Now,
+                IsAutoBackup = false
+            };
+
+            var backupFileName = "Latest.zip";
+            var fullBackupPath = Path.Combine(gameBackupPath, backupFileName);
+            
+            // 存储相对路径
+            backup.BackupFilePath = GetRelativeBackupPath(fullBackupPath);
+
+            // 创建ZIP文件
+            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, gameName, backup.Description);
+
+            // 获取文件大小
+            var fileInfo = new FileInfo(fullBackupPath);
+            backup.FileSize = fileInfo.Length;
+
+            // 计算 CRC32
+            backup.CRC = ComputeCrc32(fullBackupPath);
+
+            // 继承之前的 VersionHistory 并追加当前 CRC（去重：如果与最后一个相同则不添加）
+            backup.VersionHistory.AddRange(inheritedHistory);
+            if (backup.VersionHistory.Count == 0 || backup.VersionHistory.Last() != backup.CRC)
+            {
+                backup.VersionHistory.Add(backup.CRC);
+            }
+
+            // 如果之前存在 Latest，则替换；否则新增
+            if (previousLatest != null)
+            {
+                gameBackups[config.ConfigId].Remove(previousLatest);
+            }
+            
+            if (!gameBackups.ContainsKey(config.ConfigId))
+            {
+                gameBackups[config.ConfigId] = new List<SaveBackup>();
+            }
+            gameBackups[config.ConfigId].Add(backup);
+            SaveData();
+
+            logger.Info($"Created realtime sync snapshot for game {gameName}: {fullBackupPath} (CRC: {backup.CRC}, History: {backup.VersionHistory.Count} versions)");
             return backup;
         }
 
@@ -714,7 +977,33 @@ namespace SaveManager.Services
                 }
             }
 
+
+
             logger.Info($"Restored backup: {backup.BackupFilePath}");
+            
+            // 如果启用了实时同步，将还原的备份复制为 Latest.zip
+            // 如果启用了实时同步，还原后立即创建一个新的实时快照作为 Latest.zip
+            if (getRealtimeSyncEnabled?.Invoke() ?? false)
+            {
+                try
+                {
+                    // 获取游戏名称
+                    var gameName = playniteApi.Database.Games.Get(backup.GameId)?.Name ?? "Unknown Game";
+
+                    // 重新创建快照（这将基于当前磁盘文件生成 Latest.zip）
+                    // 并且基于被还原备份的历史记录
+                    CreateRealtimeSyncSnapshot(backup.GameId, gameName, backup.VersionHistory);
+                    logger.Info($"Re-created Latest.zip after restore for game {gameName}");
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn(ex, "Failed to update Latest.zip after restore");
+                    // 弹窗提示用户文件被占用或其他错误
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"Failed to update Latest.zip: {ex.Message}", 
+                        "Real-time Sync Error");
+                }
+            }
         }
 
         /// <summary>
@@ -835,6 +1124,12 @@ namespace SaveManager.Services
                 FileSize = fileInfo.Length
             };
 
+            // 计算导入备份的 CRC32 校验值
+            backup.CRC = ComputeCrc32(destPath);
+
+            // 版本历史仅记录当前备份的 CRC
+            backup.VersionHistory.Add(backup.CRC);
+
             // 保存记录
             if (!gameBackups.ContainsKey(config.ConfigId))
             {
@@ -843,7 +1138,7 @@ namespace SaveManager.Services
             gameBackups[config.ConfigId].Add(backup);
             SaveData();
 
-            logger.Info($"Imported backup for game {gameName}: {destPath}");
+            logger.Info($"Imported backup for game {gameName}: {destPath} (CRC: {backup.CRC})");
             return backup;
         }
 
@@ -1079,7 +1374,7 @@ namespace SaveManager.Services
         /// <summary>
         /// V1 存档数据模型（用于迁移）
         /// </summary>
-        private class SaveDataModelV1
+        public class SaveDataModelV1
         {
             public Dictionary<Guid, GameSaveConfig> GameConfigs { get; set; }
             public Dictionary<Guid, List<SaveBackup>> GameBackups { get; set; }
@@ -1088,7 +1383,7 @@ namespace SaveManager.Services
         /// <summary>
         /// V2 存档数据模型（当前版本）
         /// </summary>
-        private class SaveDataModelV2
+        public class SaveDataModelV2
         {
             public int Version { get; set; } = CurrentDataVersion;
             public Dictionary<Guid, GameSaveConfig> GameConfigs { get; set; }
@@ -1098,7 +1393,7 @@ namespace SaveManager.Services
         /// <summary>
         /// 路径映射
         /// </summary>
-        private class PathMapping
+        public class PathMapping
         {
             public string OriginalPath { get; set; }
             public bool IsDirectory { get; set; }

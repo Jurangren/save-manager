@@ -16,6 +16,11 @@
                   IsChecked="{Binding AutoBackupOnGameExit}" 
                   Margin="0,10,0,0"/>
         
+        <CheckBox Content="{DynamicResource LOCSaveManagerRealtimeSync}" 
+                  IsChecked="{Binding RealtimeSyncEnabled}" 
+                  ToolTip="{DynamicResource LOCSaveManagerRealtimeSyncTooltip}"
+                  Margin="0,10,0,0"/>
+        
         <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
             <TextBlock Text="{DynamicResource LOCSaveManagerMaxAutoBackupCount}" VerticalAlignment="Center"/>
             <TextBox Text="{Binding MaxAutoBackupCount}" Width="60" Margin="10,0" 
@@ -74,5 +79,21 @@
                 </StackPanel>
             </Button>
         </StackPanel>
+        
+        <!-- 危险区域 -->
+        <Separator Margin="0,30,0,15" Background="{DynamicResource NormalBorderBrush}"/>
+        
+        <TextBlock Text="{DynamicResource LOCSaveManagerDangerZone}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="#CC0000"/>
+        
+        <Button Command="{Binding DeleteAllDataCommand}" 
+                Background="#CC0000" Foreground="White"
+                BorderBrush="#AA0000"
+                Padding="10,6"
+                ToolTip="{DynamicResource LOCSaveManagerDeleteAllDataTooltip}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⚠️" Margin="0,0,6,0"/>
+                <TextBlock Text="{DynamicResource LOCSaveManagerDeleteAllData}"/>
+            </StackPanel>
+        </Button>
     </StackPanel>
 </UserControl>

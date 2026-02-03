@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -72,6 +73,16 @@ namespace SaveManager.Models
         /// 是否为自动备份（用于自动清理限制，修改备注后会变为手动备份）
         /// </summary>
         public bool IsAutoBackup { get; set; } = false;
+
+        /// <summary>
+        /// 备份文件的 CRC32 校验值（用于完整性验证和版本追踪）
+        /// </summary>
+        public string CRC { get; set; }
+
+        /// <summary>
+        /// 版本历史记录（该游戏所有备份的 CRC 值，按时间顺序）
+        /// </summary>
+        public List<string> VersionHistory { get; set; } = new List<string>();
 
         /// <summary>
         /// 格式化的文件大小

@@ -153,7 +153,7 @@ For cross-machine backup, paths in the configuration may not exist, which could 
 
 Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">Import Global Config</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;Please restart Playnite for changes to take effect.</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">Global configuration imported successfully!&#x0a;&#x0a;All configurations and backups have been reloaded.</sys:String>
 
     <!-- Cross-Device Management -->
     <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">Cross-Device Management</sys:String>
@@ -177,5 +177,19 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerForceRestore">Force Restore</sys:String>
     <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">Force Restore (Ignores all exclusion rules)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">Are you sure you want to force restore this backup?&#x0a;This will overwrite ALL save files, including those in exclusion list.&#x0a;This action cannot be undone!</sys:String>
+
+    <sys:String x:Key="LOCSaveManagerRealtimeSync">Real-time Save Sync on Game Start/Exit</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">When enabled, automatically creates a Latest.zip snapshot after each game session to track progress history</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">Latest Real-time Save Snapshot</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">Real-time sync snapshot created: Latest.zip</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleWarning">Warning</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">Disabling real-time sync will cause the following issues:&#x0a;&#x0a;• Save CRC version information will not be recorded&#x0a;• Version history will not be maintained&#x0a;• Frequent conflict prompts when restoring saves across devices&#x0a;• Frequent conflict prompts will appear when restoring backups&#x0a;&#x0a;It is strongly recommended NOT to disable this feature!&#x0a;&#x0a;Are you sure you want to disable real-time sync?</sys:String>
+
+    <sys:String x:Key="LOCSaveManagerDangerZone">Danger Zone</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllData">Delete All Data</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllDataTooltip">Delete all Save Manager configurations and backup data (irreversible)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteAllData">⚠️ Warning: This will permanently delete:&#x0a;&#x0a;• All game save configurations&#x0a;• All created backup files&#x0a;• All plugin settings&#x0a;&#x0a;This action cannot be undone!&#x0a;&#x0a;Are you sure you want to delete all data?</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataSuccess">All data has been successfully deleted and reset.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataFailed">Failed to delete data:</sys:String>
 
 </ResourceDictionary>

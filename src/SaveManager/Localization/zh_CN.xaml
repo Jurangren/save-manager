@@ -153,7 +153,7 @@
 
 确定要继续吗？</sys:String>
     <sys:String x:Key="LOCSaveManagerGlobalImportTitle">导入全局配置</sys:String>
-    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">全局配置导入成功！&#x0a;&#x0a;请重启Playnite以使更改生效。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGlobalImportSuccess">全局配置导入成功！&#x0a;&#x0a;所有配置和备份已重新加载。</sys:String>
 
     <!-- 跨设备管理 -->
     <sys:String x:Key="LOCSaveManagerCrossDeviceManagement">跨设备管理</sys:String>
@@ -180,5 +180,19 @@
     <sys:String x:Key="LOCSaveManagerForceRestore">强制还原</sys:String>
     <sys:String x:Key="LOCSaveManagerForceRestoreTooltip">强制还原 (无视所有排除项规则)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmForceRestore">您确定要强制还原此备份吗？&#x0a;这将覆盖当前所有的存档文件，包括配置了排除项的文件。&#x0a;此操作不可撤销！</sys:String>
+
+    <sys:String x:Key="LOCSaveManagerRealtimeSync">游戏前后实时同步游玩存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">启用后，每次游戏结束时自动创建名为 Latest.zip 的实时快照，可追踪游戏进度历史</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">最新的实时游玩存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">已创建实时同步快照：Latest.zip</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleWarning">警告</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">关闭实时同步将导致以下问题：&#x0a;&#x0a;• 将不会记录存档的 CRC 版本信息&#x0a;• 将不会保留版本历史记录&#x0a;• 在跨设备同步时还原存档将频繁提示存档冲突&#x0a;• 还原备份时将会频繁弹出存档冲突提示&#x0a;&#x0a;强烈建议不要关闭此功能！&#x0a;&#x0a;确定要关闭实时同步吗？</sys:String>
+
+    <sys:String x:Key="LOCSaveManagerDangerZone">危险区域</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllData">删除所有数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerDeleteAllDataTooltip">删除所有 Save Manager 配置和备份数据（不可恢复）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmDeleteAllData">⚠️ 警告：此操作将永久删除以下内容：&#x0a;&#x0a;• 所有游戏的存档配置&#x0a;• 所有已创建的备份文件&#x0a;• 所有插件设置&#x0a;&#x0a;此操作不可撤销！&#x0a;&#x0a;确定要删除所有数据吗？</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataSuccess">所有数据已成功删除并重置。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeleteAllDataFailed">删除数据失败：</sys:String>
 
 </ResourceDictionary>
