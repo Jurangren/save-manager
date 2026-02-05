@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using Playnite.SDK;
 using Playnite.SDK.Data;
@@ -68,6 +69,10 @@ namespace SaveManager
 
         // 实时同步设置（默认启用）
         private bool realtimeSyncEnabled = true;
+        
+        // 标志：是否正在加载设置（加载时不弹警告）
+        [DontSerialize]
+        private bool isLoading = false;
 
         /// <summary>
         /// 游戏前后实时同步游玩存档
@@ -77,8 +82,8 @@ namespace SaveManager
             get => realtimeSyncEnabled;
             set
             {
-                // 如果用户尝试从启用改为禁用，弹出警告
-                if (realtimeSyncEnabled && !value && plugin?.PlayniteApi != null)
+                // 如果用户尝试从启用改为禁用（且不是加载阶段），弹出警告
+                if (!isLoading && realtimeSyncEnabled && !value && plugin?.PlayniteApi != null)
                 {
                     var result = plugin.PlayniteApi.Dialogs.ShowMessage(
                         ResourceProvider.GetString("LOCSaveManagerMsgDisableRealtimeSyncWarning"),
@@ -192,6 +197,10 @@ namespace SaveManager
         public ICommand PushAllDataCommand { get; }
         [DontSerialize]
         public ICommand VerifyCloudCommand { get; }
+        [DontSerialize]
+        public ICommand SyncConfigNowCommand { get; }
+        [DontSerialize]
+        public ICommand VerifyCloudBackupsCommand { get; }
 
         /// <summary>
         /// 无参构造函数（序列化需要）
@@ -219,6 +228,8 @@ namespace SaveManager
             PullAllDataCommand = new Playnite.SDK.RelayCommand(async () => await PullAllDataAsync());
             PushAllDataCommand = new Playnite.SDK.RelayCommand(async () => await PushAllDataAsync());
             VerifyCloudCommand = new Playnite.SDK.RelayCommand(() => VerifyCloud());
+            SyncConfigNowCommand = new Playnite.SDK.RelayCommand(async () => await SyncConfigNowAsync());
+            VerifyCloudBackupsCommand = new Playnite.SDK.RelayCommand(async () => await VerifyCloudBackupsAsync());
 
             // 加载保存的设置（使用自定义方法）
             LoadSettings();
@@ -239,6 +250,8 @@ namespace SaveManager
         {
             try
             {
+                isLoading = true; // 标记正在加载，避免触发警告弹窗
+                
                 var settingsPath = GetSettingsFilePath();
                 if (File.Exists(settingsPath))
                 {
@@ -251,16 +264,21 @@ namespace SaveManager
                         ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
                         MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
                         RealtimeSyncEnabled = savedSettings.RealtimeSyncEnabled;
+                        SyncConfigOnGameStart = savedSettings.SyncConfigOnGameStart;
                         // 云同步设置
                         cloudSyncEnabled = savedSettings.CloudSyncEnabled;
                         cloudProvider = savedSettings.CloudProvider;
-                        logger.Info($"Settings loaded: CloudSyncEnabled={cloudSyncEnabled}, CloudProvider={cloudProvider}");
+                        logger.Info($"Settings loaded: CloudSyncEnabled={cloudSyncEnabled}, CloudProvider={cloudProvider}, SyncConfigOnGameStart={syncConfigOnGameStart}");
                     }
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to load plugin settings from settings.json");
+            }
+            finally
+            {
+                isLoading = false; // 加载完成
             }
         }
 
@@ -1008,6 +1026,215 @@ namespace SaveManager
             }
         }
 
+        /// <summary>
+        /// 立即同步配置
+        /// </summary>
+        private async System.Threading.Tasks.Task SyncConfigNowAsync()
+        {
+            if (!CloudSyncEnabled)
+            {
+                plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncDisabled"),
+                    "Save Manager");
+                return;
+            }
+
+            try
+            {
+                var cloudSyncManager = plugin.GetCloudSyncManager();
+                if (cloudSyncManager == null)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        "Cloud sync manager not initialized.", "Error");
+                    return;
+                }
+
+                bool success = false;
+                Exception syncException = null;
+
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.IsIndeterminate = true;
+                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig");
+
+                    try
+                    {
+                        var task = cloudSyncManager.SyncConfigFromCloudAsync();
+                        task.Wait();
+                        var result = task.Result;
+                        success = result.Success;
+                        if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
+                        {
+                            syncException = new Exception(result.ErrorMessage);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        syncException = ex;
+                        success = false;
+                    }
+                }, new GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig"), false)
+                {
+                    IsIndeterminate = true
+                });
+
+                if (success)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgSyncConfigSuccess"),
+                        "Save Manager",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+                else if (syncException != null)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowErrorMessage(
+                        syncException.Message, "Sync Error");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to sync config");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
+
+        /// <summary>
+        /// 验证云端所有备份文件的可用性
+        /// </summary>
+        private async System.Threading.Tasks.Task VerifyCloudBackupsAsync()
+        {
+            if (plugin == null) return;
+
+            if (!CloudSyncEnabled)
+            {
+                plugin.PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncDisabled"),
+                    "Save Manager");
+                return;
+            }
+
+            var backupService = plugin.GetBackupService();
+            var cloudSyncManager = plugin.GetCloudSyncManager();
+            
+            if (backupService == null || cloudSyncManager == null)
+            {
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage("Services not available", "Error");
+                return;
+            }
+
+            try
+            {
+                // 收集所有需要验证的备份
+                var allConfigs = backupService.GetAllGameConfigs();
+                var backupsToVerify = new List<(string gameName, SaveManager.Models.SaveBackup backup, string cloudPath)>();
+
+                foreach (var config in allConfigs)
+                {
+                    var backups = backupService.GetBackupsByConfigId(config.ConfigId);
+                    
+                    // 使用配置中的游戏名称
+                    var gameName = config.GameName ?? config.ConfigId.ToString();
+
+                    foreach (var backup in backups)
+                    {
+                        var cloudPath = cloudSyncManager.GetBackupCloudPath(backup, gameName);
+                        backupsToVerify.Add((gameName, backup, cloudPath));
+                    }
+                }
+
+                if (backupsToVerify.Count == 0)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        ResourceProvider.GetString("LOCSaveManagerMsgNoCloudBackups"),
+                        "Save Manager");
+                    return;
+                }
+
+                // 验证每个备份
+                var invalidBackups = new List<(string gameName, string backupName, string note, string reason)>();
+                int current = 0;
+                int total = backupsToVerify.Count;
+
+                plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.IsIndeterminate = false;
+                    progressArgs.ProgressMaxValue = total;
+
+                    foreach (var (gameName, backup, cloudPath) in backupsToVerify)
+                    {
+                        if (progressArgs.CancelToken.IsCancellationRequested)
+                            break;
+
+                        current++;
+                        progressArgs.CurrentProgressValue = current;
+                        progressArgs.Text = string.Format(
+                            ResourceProvider.GetString("LOCSaveManagerMsgVerifyingBackups"),
+                            current, total);
+
+                        try
+                        {
+                            var task = cloudSyncManager.GetCloudFileInfoAsync(cloudPath);
+                            task.Wait();
+                            var (exists, size) = task.Result;
+
+                            if (!exists)
+                            {
+                                invalidBackups.Add((gameName, backup.Name, backup.Description ?? "", "Not found"));
+                            }
+                            else if (size == 0)
+                            {
+                                invalidBackups.Add((gameName, backup.Name, backup.Description ?? "", "0 KB"));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            invalidBackups.Add((gameName, backup.Name, backup.Description ?? "", ex.Message));
+                        }
+                    }
+                }, new GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgVerifyingBackups"), true)
+                {
+                    IsIndeterminate = false
+                });
+
+                // 显示结果
+                if (invalidBackups.Count == 0)
+                {
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgAllBackupsValid"), total),
+                        "Save Manager",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+                else
+                {
+                    // 构建无效备份列表
+                    var sb = new System.Text.StringBuilder();
+                    foreach (var (gameName, backupName, note, reason) in invalidBackups)
+                    {
+                        sb.AppendLine($"• {gameName} - {backupName}");
+                        if (!string.IsNullOrEmpty(note))
+                            sb.AppendLine($"  Note: {note}");
+                        sb.AppendLine($"  Reason: {reason}");
+                        sb.AppendLine();
+                    }
+
+                    plugin.PlayniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgInvalidBackupsFound"),
+                            invalidBackups.Count, sb.ToString().TrimEnd()),
+                        "Save Manager",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to verify cloud backups");
+                plugin.PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
 
         public void BeginEdit()
         {

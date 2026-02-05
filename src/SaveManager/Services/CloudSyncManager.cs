@@ -343,6 +343,22 @@ namespace SaveManager.Services
             try
             {
                 var config = backupService.GetGameConfig(gameId);
+                
+                // 如果通过 gameId 找不到配置，尝试通过游戏名称查找
+                // 这在跨设备同步时很有用：配置已同步但本设备的 gameId 还没关联
+                if (config == null && !string.IsNullOrEmpty(gameName))
+                {
+                    config = backupService.GetConfigByGameName(gameName);
+                    
+                    // 如果找到了配置，自动将当前设备的 gameId 添加到配置中
+                    if (config != null)
+                    {
+                        logger.Info($"Found config by game name '{gameName}', adding gameId {gameId} to config");
+                        config.AddGameId(gameId);
+                        backupService.SaveGameConfig(config);
+                    }
+                }
+                
                 if (config == null)
                 {
                     result.Result = SyncCheckResult.BothMissing;
@@ -481,6 +497,21 @@ namespace SaveManager.Services
             try
             {
                 var config = backupService.GetGameConfig(gameId);
+                
+                // 如果通过 gameId 找不到配置，尝试通过游戏名称查找
+                if (config == null && !string.IsNullOrEmpty(gameName))
+                {
+                    config = backupService.GetConfigByGameName(gameName);
+                    
+                    // 如果找到了配置，自动将当前设备的 gameId 添加到配置中
+                    if (config != null)
+                    {
+                        logger.Info($"Found config by game name '{gameName}', adding gameId {gameId} to config");
+                        config.AddGameId(gameId);
+                        backupService.SaveGameConfig(config);
+                    }
+                }
+                
                 if (config == null) return false;
 
                 var remoteGamePath = rcloneService.GetRemoteGamePath(config.ConfigId, gameName);
@@ -645,6 +676,55 @@ namespace SaveManager.Services
             {
                 logger.Error(ex, $"Failed to upload backup {backup.Name} to cloud");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取备份在云端的路径
+        /// </summary>
+        public string GetBackupCloudPath(SaveBackup backup, string gameName)
+        {
+            var remoteGamePath = rcloneService.GetRemoteGamePath(backup.ConfigId, gameName);
+            return $"{remoteGamePath}/{Path.GetFileName(backup.BackupFilePath)}";
+        }
+
+        /// <summary>
+        /// 检查云端文件是否存在
+        /// </summary>
+        public async Task<bool> CheckCloudFileExistsAsync(string remotePath)
+        {
+            if (GetCloudSyncEnabled?.Invoke() != true) return false;
+            
+            var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+            
+            try
+            {
+                return await rcloneService.CheckRemoteFileExistsAsync(remotePath, provider);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to check if cloud file exists: {remotePath}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取云端文件信息（用于验证）
+        /// </summary>
+        public async Task<(bool exists, long size)> GetCloudFileInfoAsync(string remotePath)
+        {
+            if (GetCloudSyncEnabled?.Invoke() != true) return (false, 0);
+            
+            var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+            
+            try
+            {
+                return await rcloneService.GetRemoteFileInfoAsync(remotePath, provider);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to get cloud file info: {remotePath}");
+                return (false, 0);
             }
         }
 
@@ -921,6 +1001,28 @@ namespace SaveManager.Services
                 logger.Error(ex, $"Failed to push Latest to cloud for game {gameName}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 获取云端游戏文件夹中的文件数量
+        /// </summary>
+        public async Task<List<string>> GetCloudGameFilesAsync(string gameName)
+        {
+            var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+            var sanitizedName = RcloneService.SanitizeGameName(gameName);
+            var remotePath = $"Backups/{sanitizedName}";
+            return await rcloneService.ListRemoteFilesAsync(remotePath, provider);
+        }
+
+        /// <summary>
+        /// 删除云端游戏文件夹
+        /// </summary>
+        public async Task<bool> DeleteCloudGameFolderAsync(string gameName)
+        {
+            var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+            var sanitizedName = RcloneService.SanitizeGameName(gameName);
+            var remotePath = $"Backups/{sanitizedName}";
+            return await rcloneService.DeleteRemoteDirectoryAsync(remotePath, provider);
         }
 
         #endregion

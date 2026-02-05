@@ -59,6 +59,7 @@
     <Compile Include="Services\ToastNotificationService.cs" />
     <Compile Include="Services\RcloneService.cs" />
     <Compile Include="Services\CloudSyncManager.cs" />
+    <Compile Include="Services\BackgroundTaskManager.cs" />
     <Compile Include="Models\CloudProvider.cs" />
     <Compile Include="Views\SaveManagerView.xaml.cs">
       <DependentUpon>SaveManagerView.xaml</DependentUpon>

@@ -106,11 +106,12 @@
                 <ComboBoxItem Content="OneDrive"/>
                 <ComboBoxItem Content="WebDAV"/>
                 <ComboBoxItem Content="Cloudflare R2"/>
+                <ComboBoxItem Content="pCloud"/>
             </ComboBox>
         </StackPanel>
         
         <!-- 配置和验证按钮 -->
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
             <Button Command="{Binding ConfigureCloudProviderCommand}"
                     ToolTip="{DynamicResource LOCSaveManagerConfigureCloudTooltip}"
                     Padding="10,6" Margin="0,0,10,0">
@@ -129,7 +130,27 @@
             </Button>
         </StackPanel>
         
-        <!-- 拉取和推送按钮 -->
+        <!-- 第二行：同步配置 / 验证云端备份 -->
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+            <Button Command="{Binding SyncConfigNowCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerSyncConfigNowTooltip}"
+                    Padding="10,6" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🔄" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerSyncConfigNow}"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding VerifyCloudBackupsCommand}"
+                    ToolTip="{DynamicResource LOCSaveManagerVerifyCloudBackupsTooltip}"
+                    Padding="10,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="✅" Margin="0,0,6,0"/>
+                    <TextBlock Text="{DynamicResource LOCSaveManagerVerifyCloudBackups}"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+        
+        <!-- 第三行：拉取 / 推送 -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
             <Button Command="{Binding PullAllDataCommand}"
                     ToolTip="{DynamicResource LOCSaveManagerPullAllDataTooltip}"

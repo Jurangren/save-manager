@@ -51,6 +51,7 @@
     <sys:String x:Key="LOCSaveManagerZipWarning">提示：存档备份将保存为标准ZIP压缩包格式。</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">自动备份 - 游戏运行 {0} 分钟后</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[存档管理] 已自动备份「{0}」- {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupCloudSuccess">[存档管理] 已自动备份并上传云端「{0}」- {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[存档管理] 「{0}」自动备份失败：{1}</sys:String>
     <sys:String x:Key="LOCSaveManagerToastBackupTitle">存档管理 - 备份完成</sys:String>
     <sys:String x:Key="LOCSaveManagerToastBackupMessage">「{0}」已备份：{1}</sys:String>
@@ -192,6 +193,17 @@
     <sys:String x:Key="LOCSaveManagerCloudProviderTooltip">选择用于同步的云存储服务</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloud">验证连接</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloudTooltip">测试云服务连接状态</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigNow">立即同步配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigNowTooltip">立即从云端拉取并合并配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloudBackups">验证云端备份可用性</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloudBackupsTooltip">检查云端所有备份文件是否存在且有效</sys:String>
+    <sys:String x:Key="LOCSaveManagerReupload">重新上传</sys:String>
+    <sys:String x:Key="LOCSaveManagerReuploadTooltip">重新上传选中的备份到云端</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReuploadConfirm">云端已存在该备份文件，重新上传将会覆盖云端文件。&#x0a;&#x0a;确定要继续吗？</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgVerifyingBackups">正在验证云端备份... ({0}/{1})</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgAllBackupsValid">所有云端备份均有效！共验证 {0} 个备份文件。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInvalidBackupsFound">发现 {0} 个无效备份：&#x0a;&#x0a;{1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoCloudBackups">未找到任何云端备份路径。</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllData">从云端拉取备份数据(除Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllDataTooltip">下载云端所有游戏的配置和备份（谨慎使用）</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllData">推送到云端 (所有数据)</sys:String>
@@ -260,6 +272,8 @@
     <sys:String x:Key="LOCSaveManagerMsgUploadingBackups">正在上传备份队列...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudUploadSuccess">云端上传成功 ({0})</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">正在同步SaveManager配置...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSyncConfigSuccess">配置同步成功</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncDisabled">云同步未启用</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingLatest">正在拉取并还原最新存档...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">首次推送完成</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">云端已首次推送配置文件，是否现在就推送所有备份到云端？（首次推送较为耗时）&#x0a;&#x0a;你也可以稍后手动点击"推送所有数据"按钮进行推送。</sys:String>
@@ -267,6 +281,13 @@
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPulled">已从云端恢复存档</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPullFailed">云存档拉取失败: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudConnectionFailed">云端连接失败或超时，请检查网络连接</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnRetry">重试</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnIgnore">忽略</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCannotDeleteLatest">Latest 是实时同步快照，不能删除。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCannotEditLatest">Latest 是实时同步快照，不能编辑备注。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCheckingCloudFiles">正在检查云端文件...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeletingCloudFolder">正在删除云端文件夹 "{0}" ({1}/{2})...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudDeleteFailed">删除云端文件夹失败: {0}</sys:String>
     
     <!-- 排除项 -->
     <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">还原排除项</sys:String>
@@ -295,6 +316,7 @@
     <!-- 还原后更新Latest -->
     <sys:String x:Key="LOCSaveManagerMsgRestoreUpdateLatest">还原成功！&#x0a;&#x0a;是否将此版本设为当前版本并推送到云端？&#x0a;&#x0a;如果不推送，下次启动游戏时云同步可能会覆盖此次还原。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgUpdatingLatest">正在更新并推送到云端...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUpdatingLatestLocal">正在更新本地版本记录...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgLatestUpdated">已更新为当前版本并推送到云端！</sys:String>
 
     <!-- 云端同步操作 -->
@@ -307,6 +329,7 @@
     <sys:String x:Key="LOCSaveManagerMsgBackupUploadComplete">备份已上传到云端: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgBackupDeleteComplete">已从云端删除备份: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncFailed">云同步失败: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWaitingForTasks">正在等待SaveManager自动备份或云同步后台任务完成...</sys:String>
 
     <!-- Cloudflare R2 配置 -->
     <sys:String x:Key="LOCSaveManagerMsgEnterR2AccountId">请输入 Cloudflare Account ID：&#x0a;&#x0a;（可在 Cloudflare Dashboard > R2 > 概览 页面右侧找到）</sys:String>

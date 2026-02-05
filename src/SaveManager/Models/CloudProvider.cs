@@ -25,7 +25,12 @@ namespace SaveManager.Models
         /// <summary>
         /// Cloudflare R2 (S3 兼容)
         /// </summary>
-        CloudflareR2 = 3
+        CloudflareR2 = 3,
+
+        /// <summary>
+        /// pCloud
+        /// </summary>
+        pCloud = 4
     }
 
     /// <summary>
@@ -48,6 +53,8 @@ namespace SaveManager.Models
                     return "webdav";
                 case CloudProvider.CloudflareR2:
                     return "cloudflare-r2";
+                case CloudProvider.pCloud:
+                    return "pcloud";
                 default:
                     throw new ArgumentException($"Unsupported provider: {provider}");
             }
@@ -68,6 +75,8 @@ namespace SaveManager.Models
                     return "webdav";
                 case CloudProvider.CloudflareR2:
                     return "s3";
+                case CloudProvider.pCloud:
+                    return "pcloud";
                 default:
                     throw new ArgumentException($"Unsupported provider: {provider}");
             }
@@ -88,6 +97,8 @@ namespace SaveManager.Models
                     return "WebDAV";
                 case CloudProvider.CloudflareR2:
                     return "Cloudflare R2";
+                case CloudProvider.pCloud:
+                    return "pCloud";
                 default:
                     return provider.ToString();
             }
@@ -107,6 +118,16 @@ namespace SaveManager.Models
         public static bool RequiresS3Config(CloudProvider provider)
         {
             return provider == CloudProvider.CloudflareR2;
+        }
+
+        /// <summary>
+        /// 是否需要 OAuth 配置（浏览器授权）
+        /// </summary>
+        public static bool RequiresOAuthConfig(CloudProvider provider)
+        {
+            return provider == CloudProvider.GoogleDrive || 
+                   provider == CloudProvider.OneDrive || 
+                   provider == CloudProvider.pCloud;
         }
     }
 }

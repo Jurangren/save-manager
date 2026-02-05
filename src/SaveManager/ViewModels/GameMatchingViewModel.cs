@@ -766,8 +766,14 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
-                    // 删除数据
+                    // 删除本地数据
                     backupService.DeleteGameConfig(item.Config.ConfigId);
+
+                    // 如果启用了云同步，删除云端文件夹
+                    if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+                    {
+                        DeleteCloudFolderWithProgress(item.ConfigGameName);
+                    }
 
                     // 如果该项占用了游戏，需要释放该游戏 ID
                     if (item.IsMatched && item.MatchedGame != null)
@@ -804,6 +810,139 @@ namespace SaveManager.ViewModels
                     playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Delete Failed");
                 }
             }
+        }
+
+        /// <summary>
+        /// 删除云端文件夹（带进度显示和重试功能）
+        /// </summary>
+        private void DeleteCloudFolderWithProgress(string gameName)
+        {
+            bool shouldRetry = true;
+
+            while (shouldRetry)
+            {
+                shouldRetry = false;
+                bool success = false;
+                Exception syncException = null;
+                int totalFiles = 0;
+
+                // 第1步：获取云端文件数量
+                playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.IsIndeterminate = true;
+                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgCheckingCloudFiles");
+
+                    try
+                    {
+                        var task = cloudSyncManager.GetCloudGameFilesAsync(gameName);
+                        task.Wait();
+                        totalFiles = task.Result?.Count ?? 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        syncException = ex;
+                    }
+                }, new GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgDeletingFromCloud"), false)
+                {
+                    IsIndeterminate = true
+                });
+
+                if (syncException != null)
+                {
+                    // 显示重试/忽略对话框
+                    if (!ShowRetryIgnoreDialog(syncException.Message))
+                    {
+                        return; // 用户选择忽略
+                    }
+                    shouldRetry = true;
+                    continue;
+                }
+
+                if (totalFiles == 0)
+                {
+                    // 云端没有文件，直接返回
+                    return;
+                }
+
+                // 第2步：删除云端文件夹
+                playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.IsIndeterminate = false;
+                    progressArgs.ProgressMaxValue = totalFiles;
+                    progressArgs.CurrentProgressValue = 0;
+                    progressArgs.Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgDeletingCloudFolder"), gameName, 0, totalFiles);
+
+                    try
+                    {
+                        var task = cloudSyncManager.DeleteCloudGameFolderAsync(gameName);
+                        
+                        // 模拟进度（因为 purge 是一次性删除）
+                        int simulatedProgress = 0;
+                        while (!task.IsCompleted)
+                        {
+                            System.Threading.Thread.Sleep(100);
+                            if (simulatedProgress < totalFiles - 1)
+                            {
+                                simulatedProgress++;
+                                progressArgs.CurrentProgressValue = simulatedProgress;
+                                progressArgs.Text = string.Format(
+                                    ResourceProvider.GetString("LOCSaveManagerMsgDeletingCloudFolder"), 
+                                    gameName, simulatedProgress, totalFiles);
+                            }
+                        }
+
+                        success = task.Result;
+                        if (success)
+                        {
+                            progressArgs.CurrentProgressValue = totalFiles;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        syncException = ex;
+                        success = false;
+                    }
+                }, new GlobalProgressOptions(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgDeletingCloudFolder"), gameName, 0, totalFiles), false)
+                {
+                    IsIndeterminate = false
+                });
+
+                if (!success)
+                {
+                    string errorMsg = syncException?.Message ?? 
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudDeleteFailed"), gameName);
+                    
+                    if (ShowRetryIgnoreDialog(errorMsg))
+                    {
+                        shouldRetry = true;
+                    }
+                    // 用户选择忽略，退出循环
+                }
+            }
+        }
+
+        /// <summary>
+        /// 显示重试/忽略对话框
+        /// </summary>
+        private bool ShowRetryIgnoreDialog(string errorMsg)
+        {
+            var options = new List<MessageBoxOption>
+            {
+                new MessageBoxOption(
+                    ResourceProvider.GetString("LOCSaveManagerBtnRetry"), true, false),
+                new MessageBoxOption(
+                    ResourceProvider.GetString("LOCSaveManagerBtnIgnore"), false, true)
+            };
+
+            var selectedOption = playniteApi.Dialogs.ShowMessage(
+                errorMsg,
+                "Cloud Sync Error",
+                MessageBoxImage.Error,
+                options);
+
+            return selectedOption == options[0]; // 返回true表示重试
         }
 
         /// <summary>

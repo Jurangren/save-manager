@@ -799,6 +799,98 @@ namespace SaveManager.Services
             }
         }
 
+        /// <summary>
+        /// 列出远程目录中的所有文件（递归）
+        /// </summary>
+        public async Task<List<string>> ListRemoteFilesAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
+            var files = new List<string>();
+
+            try
+            {
+                logger.Info($"Listing remote files: {remotePath}");
+
+                var result = await ExecuteRcloneCommandAsync(
+                    $"lsjson \"{fullRemotePath}\" --recursive --files-only --config \"{RcloneConfigPath}\"",
+                    ProcessTimeout
+                );
+
+                if (result.Success && !string.IsNullOrEmpty(result.Output))
+                {
+                    try
+                    {
+                        var jsonArray = JArray.Parse(result.Output);
+                        foreach (var item in jsonArray)
+                        {
+                            var path = item["Path"]?.ToString();
+                            if (!string.IsNullOrEmpty(path))
+                            {
+                                files.Add(path);
+                            }
+                        }
+                        logger.Info($"Found {files.Count} files in {remotePath}");
+                    }
+                    catch (Exception parseEx)
+                    {
+                        logger.Warn(parseEx, "Failed to parse lsjson output");
+                    }
+                }
+                else if (IsNotFoundError(result))
+                {
+                    logger.Info($"Remote directory not found: {remotePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Exception listing remote files: {remotePath}");
+            }
+
+            return files;
+        }
+
+        /// <summary>
+        /// 删除远程目录（整个文件夹）
+        /// </summary>
+        public async Task<bool> DeleteRemoteDirectoryAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
+
+            try
+            {
+                logger.Info($"Deleting remote directory: {remotePath}");
+
+                // 使用 purge 命令删除整个目录
+                var result = await ExecuteRcloneCommandAsync(
+                    $"purge \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromMinutes(10)  // 给更长的超时时间
+                );
+
+                if (result.Success)
+                {
+                    logger.Info($"Remote directory deleted: {remotePath}");
+                    return true;
+                }
+
+                // 如果目录不存在，也视为成功
+                if (IsNotFoundError(result))
+                {
+                    logger.Info($"Remote directory not found (already deleted): {remotePath}");
+                    return true;
+                }
+
+                logger.Warn($"Failed to delete remote directory: {result.Error}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Exception deleting remote directory: {remotePath}");
+                return false;
+            }
+        }
+
         #endregion
 
         #region 下载操作
@@ -949,6 +1041,69 @@ namespace SaveManager.Services
             {
                 logger.Error(ex, $"Exception when checking remote file exists: {remotePath}");
                 return null; // 连接错误
+            }
+        }
+
+        /// <summary>
+        /// 检查远程文件是否存在（简化版本，返回 bool）
+        /// </summary>
+        public async Task<bool> CheckRemoteFileExistsAsync(string remotePath, CloudProvider provider)
+        {
+            var result = await RemoteFileExistsAsync(remotePath, provider);
+            return result == true;
+        }
+
+        /// <summary>
+        /// 获取远程文件信息（是否存在及文件大小）
+        /// </summary>
+        public async Task<(bool exists, long size)> GetRemoteFileInfoAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
+
+            try
+            {
+                // 使用 lsjson 获取文件详细信息
+                var result = await ExecuteRcloneCommandAsync(
+                    $"lsjson \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                if (!result.Success)
+                {
+                    var errorLower = (result.Error ?? "").ToLower();
+                    if (errorLower.Contains("directory not found") || 
+                        errorLower.Contains("object not found") ||
+                        errorLower.Contains("file not found") ||
+                        errorLower.Contains("not found") ||
+                        errorLower.Contains("404"))
+                    {
+                        return (false, 0);
+                    }
+                    logger.Warn($"Cloud connection error when getting file info {remotePath}: {result.Error}");
+                    return (false, 0);
+                }
+
+                if (string.IsNullOrWhiteSpace(result.Output))
+                {
+                    return (false, 0);
+                }
+
+                // 解析 JSON 输出
+                var jsonArray = JArray.Parse(result.Output);
+                if (jsonArray.Count == 0)
+                {
+                    return (false, 0);
+                }
+
+                var fileInfo = jsonArray[0];
+                var size = fileInfo["Size"]?.Value<long>() ?? 0;
+                return (true, size);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Exception when getting remote file info: {remotePath}");
+                return (false, 0);
             }
         }
 

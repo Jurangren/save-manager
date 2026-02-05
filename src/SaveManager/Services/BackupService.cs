@@ -318,6 +318,16 @@ namespace SaveManager.Services
         }
 
         /// <summary>
+        /// 通过游戏名称获取配置（忽略大小写）
+        /// </summary>
+        public GameSaveConfig GetConfigByGameName(string gameName)
+        {
+            if (string.IsNullOrEmpty(gameName)) return null;
+            return gameConfigs.Values.FirstOrDefault(c => 
+                c.GameName != null && c.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
         /// 保存游戏的存档配置
         /// </summary>
         public void SaveGameConfig(GameSaveConfig config)
@@ -462,7 +472,11 @@ namespace SaveManager.Services
         {
             if (gameBackups.TryGetValue(configId, out var backups))
             {
-                return backups.OrderByDescending(b => b.CreatedAt).ToList();
+                // Latest 始终置顶，然后按创建时间降序排列
+                return backups
+                    .OrderByDescending(b => b.Name == "Latest")
+                    .ThenByDescending(b => b.CreatedAt)
+                    .ToList();
             }
             return new List<SaveBackup>();
         }
@@ -1172,8 +1186,10 @@ namespace SaveManager.Services
             // 获取或创建配置
             var config = GetOrCreateGameConfig(gameId, gameName);
 
-            string importedDescription = "Imported Backup";
-            DateTime importedCreatedAt = DateTime.Now;
+            string importedDescription = "";
+            DateTime importedCreatedAt = DateTime.MinValue;
+            string importedCrc = null;
+            List<string> importedVersionHistory = null;
 
             // 验证 ZIP 文件有效性并读取元数据
             try 
@@ -1200,11 +1216,21 @@ namespace SaveManager.Services
                                     {
                                         importedDescription = info.Description;
                                     }
-                                    // 可以选择信任 ZIP 内的时间，或者是导入时间
+                                    // 沿用原备份的创建时间
                                     if (info.CreatedAt != DateTime.MinValue)
                                     {
                                         importedCreatedAt = info.CreatedAt;
-                                    } 
+                                    }
+                                    // 沿用原备份的 CRC
+                                    if (!string.IsNullOrWhiteSpace(info.CRC))
+                                    {
+                                        importedCrc = info.CRC;
+                                    }
+                                    // 沿用原备份的版本历史
+                                    if (info.VersionHistory != null && info.VersionHistory.Count > 0)
+                                    {
+                                        importedVersionHistory = new List<string>(info.VersionHistory);
+                                    }
                                 }
                             }
                         }
@@ -1224,18 +1250,29 @@ namespace SaveManager.Services
             var gameBackupPath = GetGameBackupDirectory(config.ConfigId, gameName);
             Directory.CreateDirectory(gameBackupPath);
 
-            // 生成新文件名
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 4);
-            var backupName = $"Imported_{timestamp}_{uniqueId}";
-            var fileName = $"{backupName}.zip";
-            var destPath = Path.Combine(gameBackupPath, fileName);
+            // 使用原始文件名（不改名）
+            var originalFileName = Path.GetFileName(sourceFilePath);
+            var destPath = Path.Combine(gameBackupPath, originalFileName);
+
+            // 如果文件重名，添加后缀 _2, _3, _4...
+            if (File.Exists(destPath))
+            {
+                var fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceFilePath);
+                var ext = Path.GetExtension(sourceFilePath);
+                int counter = 2;
+                while (File.Exists(destPath))
+                {
+                    destPath = Path.Combine(gameBackupPath, $"{fileNameWithoutExt}_{counter}{ext}");
+                    counter++;
+                }
+            }
 
             // 复制文件
             File.Copy(sourceFilePath, destPath);
 
             // 创建记录
             var fileInfo = new FileInfo(destPath);
+            var backupName = Path.GetFileNameWithoutExtension(destPath);
             
             var backup = new SaveBackup
             {
@@ -1244,18 +1281,30 @@ namespace SaveManager.Services
                 Name = backupName,
                 Description = importedDescription,
                 BackupFilePath = GetRelativeBackupPath(destPath),
-                CreatedAt = importedCreatedAt,
+                // 沿用原创建时间，如果没有则使用文件修改时间
+                CreatedAt = importedCreatedAt != DateTime.MinValue ? importedCreatedAt : fileInfo.LastWriteTime,
                 FileSize = fileInfo.Length
             };
 
-            // 计算导入备份的 CRC32 校验值
-            backup.CRC = ComputeCrc32(destPath);
+            // 沿用原 CRC，如果没有则重新计算
+            if (!string.IsNullOrWhiteSpace(importedCrc))
+            {
+                backup.CRC = importedCrc;
+            }
+            else
+            {
+                backup.CRC = ComputeCrc32(destPath);
+            }
 
-            // 版本历史仅记录当前备份的 CRC
-            backup.VersionHistory.Add(backup.CRC);
-
-            // 更新 zip 内的 backup_info.json（写入 CRC 和 VersionHistory）
-            UpdateBackupInfoInZip(destPath, gameName, backup.Description, backup.CRC, backup.VersionHistory);
+            // 沿用原版本历史，如果没有则只包含当前 CRC
+            if (importedVersionHistory != null && importedVersionHistory.Count > 0)
+            {
+                backup.VersionHistory = importedVersionHistory;
+            }
+            else
+            {
+                backup.VersionHistory.Add(backup.CRC);
+            }
 
             // 保存记录
             if (!gameBackups.ContainsKey(config.ConfigId))

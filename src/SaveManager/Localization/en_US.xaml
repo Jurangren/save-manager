@@ -51,6 +51,7 @@
     <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">Auto backup after {0} minutes of gameplay</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[SaveManager] Auto backup created for "{0}" - {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerAutoBackupCloudSuccess">[SaveManager] Auto backup created and uploaded to cloud for "{0}" - {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupFailed">[SaveManager] Auto backup failed for "{0}": {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerToastBackupTitle">Save Manager - Backup Complete</sys:String>
     <sys:String x:Key="LOCSaveManagerToastBackupMessage">"{0}" backup created: {1}</sys:String>
@@ -192,6 +193,17 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerCloudProviderTooltip">Select cloud storage provider for sync</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloud">Verify Connection</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloudTooltip">Test cloud service connection status</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigNow">Sync Config Now</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigNowTooltip">Pull and merge config from cloud immediately</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloudBackups">Verify Cloud Backups</sys:String>
+    <sys:String x:Key="LOCSaveManagerVerifyCloudBackupsTooltip">Check if all cloud backup files exist and are valid</sys:String>
+    <sys:String x:Key="LOCSaveManagerReupload">Re-upload</sys:String>
+    <sys:String x:Key="LOCSaveManagerReuploadTooltip">Re-upload selected backup to cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReuploadConfirm">This backup already exists in cloud. Re-uploading will overwrite the cloud file.&#x0a;&#x0a;Continue?</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgVerifyingBackups">Verifying cloud backups... ({0}/{1})</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgAllBackupsValid">All cloud backups are valid! Verified {0} backup files.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgInvalidBackupsFound">Found {0} invalid backups:&#x0a;&#x0a;{1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNoCloudBackups">No cloud backup paths found.</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllData">Pull Backup Data (Except Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllDataTooltip">Download all configs and backups from cloud (Use with caution)</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllData">Push All Data to Cloud</sys:String>
@@ -260,6 +272,8 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgUploadingBackups">Uploading backup queue...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudUploadSuccess">Cloud upload success ({0})</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">Syncing SaveManager config...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSyncConfigSuccess">Config sync successful</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncDisabled">Cloud sync is not enabled</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingLatest">Pulling and restoring latest save...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">First push complete</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">Config file pushed to cloud. Push all backups now? (First push may take some time)&#x0a;&#x0a;You can also manually click "Push All Data" button later.</sys:String>
@@ -267,6 +281,13 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPulled">Saves restored from cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPullFailed">Failed to pull cloud save: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudConnectionFailed">Cloud connection failed or timed out, please check your network</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnRetry">Retry</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnIgnore">Ignore</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCannotDeleteLatest">Latest is a real-time sync snapshot and cannot be deleted.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCannotEditLatest">Latest is a real-time sync snapshot and its note cannot be edited.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCheckingCloudFiles">Checking cloud files...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeletingCloudFolder">Deleting cloud folder "{0}" ({1}/{2})...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudDeleteFailed">Failed to delete cloud folder: {0}</sys:String>
     
     <!-- Excludes -->
     <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">Restore Exclusions</sys:String>
@@ -295,6 +316,7 @@ Are you sure you want to continue?</sys:String>
     <!-- Restore and update Latest -->
     <sys:String x:Key="LOCSaveManagerMsgRestoreUpdateLatest">Restored successfully!&#x0a;&#x0a;Do you want to set this as the current version and push to cloud?&#x0a;&#x0a;If not, cloud sync may overwrite this restore on next game start.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgUpdatingLatest">Updating and pushing to cloud...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUpdatingLatestLocal">Updating local version record...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgLatestUpdated">Updated as current version and pushed to cloud!</sys:String>
 
     <!-- Cloud sync operations -->
@@ -307,6 +329,7 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgBackupUploadComplete">Backup uploaded to cloud: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgBackupDeleteComplete">Backup deleted from cloud: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncFailed">Cloud sync failed: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWaitingForTasks">Waiting for SaveManager auto-backup or cloud sync background tasks to complete...</sys:String>
 
     <!-- Cloudflare R2 Configuration -->
     <sys:String x:Key="LOCSaveManagerMsgEnterR2AccountId">Enter Cloudflare Account ID:&#x0a;&#x0a;(Found on Cloudflare Dashboard > R2 > Overview, on the right side)</sys:String>

@@ -132,5 +132,11 @@ namespace SaveManager.Models
         /// 显示名称（如果是云端备份，前面加云图标）
         /// </summary>
         public string DisplayName => IsLocalFileExists ? Name : $"☁️ {Name}";
+
+        /// <summary>
+        /// 是否为 Latest 备份
+        /// </summary>
+        [Playnite.SDK.Data.DontSerialize]
+        public bool IsLatest => Name == "Latest";
     }
 }

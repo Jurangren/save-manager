@@ -39,8 +39,6 @@
             <TextBlock FontSize="20" FontWeight="Bold">
                 <Run Text="🎮 "/>
                 <Run Text="{Binding GameName, Mode=OneWay}"/>
-                <Run Text=" - "/>
-                <Run Text="{DynamicResource LOCSaveManagerSubtitle}"/>
             </TextBlock>
             <TextBlock Text="{Binding GameId, StringFormat='ID: {0}'}" 
                        Opacity="0.6" FontSize="11" Margin="0,4,0,0"/>
@@ -165,37 +163,8 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" FontSize="13" Opacity="0.9">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
-                                                <Setter Property="Text" Value="{DynamicResource LOCSaveManagerRestoreExcludeTitle}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsExcludeExpanded}" Value="True">
-                                                        <Setter Property="Text" Value="{DynamicResource LOCSaveManagerRestoreExcludeTitleExpanded}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <TextBlock Grid.Column="1" Text="▼" FontSize="10" VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
-                                                <Setter Property="RenderTransform">
-                                                    <Setter.Value>
-                                                        <RotateTransform Angle="0"/>
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsExcludeExpanded}" Value="True">
-                                                        <Setter Property="RenderTransform">
-                                                            <Setter.Value>
-                                                                <RotateTransform Angle="180"/>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
+                                        <Run Text="🚫 "/>
+                                        <Run Text="{DynamicResource LOCSaveManagerRestoreExcludeTitle}"/>
                                     </TextBlock>
                                 </Grid>
                             </Button>
@@ -369,7 +338,18 @@
                                             </Grid.ColumnDefinitions>
                                             
                                             <TextBlock Grid.Row="0" Grid.Column="0" 
-                                                       Text="{Binding DisplayName}" FontWeight="Bold"/>
+                                                       Text="{Binding DisplayName}" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLatest}" Value="True">
+                                                                <Setter Property="Foreground" Value="#5DADE2"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                             <TextBlock Grid.Row="0" Grid.Column="1" 
                                                        Text="{Binding FormattedSize}" 
                                                        Opacity="0.7" FontSize="11"/>
@@ -412,22 +392,14 @@
                     
                     <!-- 操作按钮 -->
                     <StackPanel Grid.Row="3" Margin="0,10,0,0">
-                        <!-- 第一行：普通操作 -->
+                        <!-- 第一行：重新上传 / 打开文件夹 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Command="{Binding EditBackupNoteCommand}" 
+                            <Button Command="{Binding ReuploadBackupCommand}" 
                                     IsEnabled="{Binding IsSingleBackupSelected}"
-                                    ToolTip="{DynamicResource LOCSaveManagerActionNoteTooltip}">
+                                    ToolTip="{DynamicResource LOCSaveManagerReuploadTooltip}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="✏️" Margin="0,0,6,0"/>
-                                    <TextBlock Text="{DynamicResource LOCSaveManagerActionNote}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Command="{Binding DeleteBackupCommand}" 
-                                    IsEnabled="{Binding IsBackupSelected}"
-                                    ToolTip="{DynamicResource LOCSaveManagerActionDeleteTooltip}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🗑️" Margin="0,0,6,0"/>
-                                    <TextBlock Text="{DynamicResource LOCSaveManagerActionDelete}"/>
+                                    <TextBlock Text="☁️" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{DynamicResource LOCSaveManagerReupload}"/>
                                 </StackPanel>
                             </Button>
                             <Button Command="{Binding OpenBackupFolderCommand}">
@@ -438,16 +410,14 @@
                             </Button>
                         </StackPanel>
                         
-                        <!-- 第二行：还原操作 -->
-                        <!-- 第二行：还原操作 -->
+                        <!-- 第二行：强制还原 / 还原 / 备注 / 删除 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                             <!-- 强制还原 (深红色) -->
                             <Button Command="{Binding ForceRestoreBackupCommand}" 
                                     IsEnabled="{Binding IsSingleBackupSelected}"
                                     ToolTip="{DynamicResource LOCSaveManagerForceRestoreTooltip}"
                                     Background="#8B0000" Foreground="White"
-                                    BorderBrush="#A00000"
-                                    Margin="0,0,10,0">
+                                    BorderBrush="#A00000">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="⚠️" Margin="0,0,6,0" Foreground="White"/>
                                     <TextBlock Text="{DynamicResource LOCSaveManagerForceRestore}" Foreground="White"/>
@@ -461,6 +431,26 @@
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="↩️" Margin="0,0,6,0"/>
                                     <TextBlock Text="{DynamicResource LOCSaveManagerActionRestore}"/>
+                                </StackPanel>
+                            </Button>
+                            
+                            <!-- 修改备注 -->
+                            <Button Command="{Binding EditBackupNoteCommand}" 
+                                    IsEnabled="{Binding IsSingleBackupSelected}"
+                                    ToolTip="{DynamicResource LOCSaveManagerActionNoteTooltip}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="✏️" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{DynamicResource LOCSaveManagerActionNote}"/>
+                                </StackPanel>
+                            </Button>
+                            
+                            <!-- 删除 -->
+                            <Button Command="{Binding DeleteBackupCommand}" 
+                                    IsEnabled="{Binding IsBackupSelected}"
+                                    ToolTip="{DynamicResource LOCSaveManagerActionDeleteTooltip}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🗑️" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{DynamicResource LOCSaveManagerActionDelete}"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
