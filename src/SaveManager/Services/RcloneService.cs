@@ -32,6 +32,19 @@ namespace SaveManager.Services
         // 远程根目录
         private const string RemoteRootFolder = "PlayniteSaveManager";
 
+        /// <summary>
+        /// 获取完整的远程根路径（对于 R2 需要包含 bucket 名称）
+        /// </summary>
+        private string GetFullRemoteRootPath(CloudProvider provider)
+        {
+            if (provider == CloudProvider.CloudflareR2)
+            {
+                var bucket = GetR2BucketName();
+                return $"{bucket}/{RemoteRootFolder}";
+            }
+            return RemoteRootFolder;
+        }
+
         // 重试设置
         private const int MaxRetries = 3;
         private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
@@ -239,6 +252,12 @@ namespace SaveManager.Services
                     return await ConfigureWebDAVProviderAsync(provider);
                 }
 
+                // Cloudflare R2 使用 S3 协议
+                if (CloudProviderHelper.RequiresS3Config(provider))
+                {
+                    return await ConfigureS3ProviderAsync(provider);
+                }
+
                 // 执行 rclone config create（会打开浏览器进行 OAuth）
                 var result = await ExecuteRcloneCommandAsync(
                     $"config create {configName} {providerType} --config \"{RcloneConfigPath}\"",
@@ -276,7 +295,7 @@ namespace SaveManager.Services
             try
             {
                 var configName = CloudProviderHelper.GetConfigName(provider);
-                var remotePath = $"{configName}:{RemoteRootFolder}";
+                var remotePath = $"{configName}:{GetFullRemoteRootPath(provider)}";
                 
                 logger.Info($"Creating remote root directory: {remotePath}");
                 
@@ -308,7 +327,7 @@ namespace SaveManager.Services
             try
             {
                 var configName = CloudProviderHelper.GetConfigName(provider);
-                var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+                var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
                 
                 // rclone mkdir 会自动创建所有父目录
                 var result = await ExecuteRcloneCommandAsync(
@@ -328,7 +347,7 @@ namespace SaveManager.Services
         }
 
         /// <summary>
-        /// 配置 WebDAV 云服务（坚果云）
+        /// 配置通用 WebDAV 云服务
         /// </summary>
         private async Task<bool> ConfigureWebDAVProviderAsync(CloudProvider provider)
         {
@@ -337,10 +356,30 @@ namespace SaveManager.Services
                 var configName = CloudProviderHelper.GetConfigName(provider);
                 var displayName = CloudProviderHelper.GetDisplayName(provider);
 
-                // 弹出输入框获取用户名和密码
+                // 弹出输入框获取 WebDAV URL
+                var urlInput = playniteApi.Dialogs.SelectString(
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterWebDAVUrl"),
+                    $"{displayName} - URL",
+                    "https://"
+                );
+
+                if (!urlInput.Result || string.IsNullOrWhiteSpace(urlInput.SelectedString))
+                {
+                    logger.Info("User cancelled WebDAV URL input");
+                    return false;
+                }
+
+                var webdavUrl = urlInput.SelectedString.Trim();
+                // 确保 URL 以 / 结尾
+                if (!webdavUrl.EndsWith("/"))
+                {
+                    webdavUrl += "/";
+                }
+
+                // 弹出输入框获取用户名
                 var username = playniteApi.Dialogs.SelectString(
-                    "请输入坚果云账号（邮箱）：\n\n提示：您需要先在坚果云网页版 -> 安全选项 -> 第三方应用管理 中创建应用密码",
-                    "坚果云配置 - 账号",
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterWebDAVUsername"),
+                    $"{displayName} - " + ResourceProvider.GetString("LOCSaveManagerMsgWebDAVUsername"),
                     ""
                 );
 
@@ -350,9 +389,10 @@ namespace SaveManager.Services
                     return false;
                 }
 
+                // 弹出输入框获取密码
                 var password = playniteApi.Dialogs.SelectString(
-                    "请输入坚果云应用密码：\n\n注意：这是应用专用密码，不是登录密码！\n请在坚果云网页版 -> 安全选项 -> 第三方应用管理 中创建",
-                    "坚果云配置 - 应用密码",
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterWebDAVPassword"),
+                    $"{displayName} - " + ResourceProvider.GetString("LOCSaveManagerMsgWebDAVPassword"),
                     ""
                 );
 
@@ -361,9 +401,6 @@ namespace SaveManager.Services
                     logger.Info("User cancelled WebDAV password input");
                     return false;
                 }
-
-                // 坚果云 WebDAV 地址
-                const string jianguoyunWebDAVUrl = "https://dav.jianguoyun.com/dav/";
 
                 // 先使用 rclone obscure 加密密码
                 var obscureResult = await ExecuteRcloneCommandAsync(
@@ -375,8 +412,8 @@ namespace SaveManager.Services
                 {
                     logger.Error($"Failed to obscure password: {obscureResult.Error}");
                     playniteApi.Dialogs.ShowErrorMessage(
-                        "密码加密失败，请重试。",
-                        "配置失败"
+                        ResourceProvider.GetString("LOCSaveManagerMsgPasswordEncryptFailed"),
+                        ResourceProvider.GetString("LOCSaveManagerMsgConfigFailed")
                     );
                     return false;
                 }
@@ -386,7 +423,7 @@ namespace SaveManager.Services
                 // 使用 rclone config create 创建 WebDAV 配置
                 var result = await ExecuteRcloneCommandAsync(
                     $"config create {configName} webdav " +
-                    $"url \"{jianguoyunWebDAVUrl}\" " +
+                    $"url \"{webdavUrl}\" " +
                     $"vendor other " +
                     $"user \"{username.SelectedString}\" " +
                     $"pass \"{obscuredPassword}\" " +
@@ -402,8 +439,8 @@ namespace SaveManager.Services
                     await EnsureRemoteRootDirectoryAsync(provider);
                     
                     playniteApi.Dialogs.ShowMessage(
-                        "坚果云配置成功！\n\n您的存档将同步到坚果云的 SaveManager 文件夹中。",
-                        "配置成功",
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgWebDAVConfigSuccess"), webdavUrl),
+                        ResourceProvider.GetString("LOCSaveManagerMsgConfigSuccess"),
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information
                     );
@@ -413,8 +450,8 @@ namespace SaveManager.Services
                 {
                     logger.Error($"Failed to configure {displayName}: {result.Error}");
                     playniteApi.Dialogs.ShowErrorMessage(
-                        $"坚果云配置失败：{result.Error}\n\n请检查账号和应用密码是否正确。",
-                        "配置失败"
+                        ResourceProvider.GetString("LOCSaveManagerMsgWebDAVConfigFailed") + $"\n\n{result.Error}",
+                        ResourceProvider.GetString("LOCSaveManagerMsgConfigFailed")
                     );
                     return false;
                 }
@@ -424,6 +461,180 @@ namespace SaveManager.Services
                 logger.Error(ex, "Failed to configure WebDAV provider");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 配置 S3 兼容云服务（Cloudflare R2）
+        /// </summary>
+        private async Task<bool> ConfigureS3ProviderAsync(CloudProvider provider)
+        {
+            try
+            {
+                var configName = CloudProviderHelper.GetConfigName(provider);
+                var displayName = CloudProviderHelper.GetDisplayName(provider);
+
+                // 提示用户输入 Account ID
+                var accountId = playniteApi.Dialogs.SelectString(
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterR2AccountId"),
+                    displayName,
+                    ""
+                );
+
+                if (!accountId.Result || string.IsNullOrWhiteSpace(accountId.SelectedString))
+                {
+                    logger.Info("User cancelled R2 Account ID input");
+                    return false;
+                }
+
+                // 提示用户输入 Access Key ID
+                var accessKey = playniteApi.Dialogs.SelectString(
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterR2AccessKey"),
+                    displayName,
+                    ""
+                );
+
+                if (!accessKey.Result || string.IsNullOrWhiteSpace(accessKey.SelectedString))
+                {
+                    logger.Info("User cancelled R2 Access Key input");
+                    return false;
+                }
+
+                // 提示用户输入 Secret Access Key
+                var secretKey = playniteApi.Dialogs.SelectString(
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterR2SecretKey"),
+                    displayName,
+                    ""
+                );
+
+                if (!secretKey.Result || string.IsNullOrWhiteSpace(secretKey.SelectedString))
+                {
+                    logger.Info("User cancelled R2 Secret Key input");
+                    return false;
+                }
+
+                // 提示用户输入 Bucket 名称
+                var bucketName = playniteApi.Dialogs.SelectString(
+                    ResourceProvider.GetString("LOCSaveManagerMsgEnterR2Bucket"),
+                    displayName,
+                    "playnite-saves"
+                );
+
+                if (!bucketName.Result || string.IsNullOrWhiteSpace(bucketName.SelectedString))
+                {
+                    logger.Info("User cancelled R2 Bucket name input");
+                    return false;
+                }
+
+                // 构建 Cloudflare R2 endpoint
+                var endpoint = $"https://{accountId.SelectedString.Trim()}.r2.cloudflarestorage.com";
+
+                // 使用 rclone obscure 加密 secret key
+                var obscureResult = await ExecuteRcloneCommandAsync(
+                    $"obscure \"{secretKey.SelectedString}\"",
+                    TimeSpan.FromSeconds(10)
+                );
+
+                if (!obscureResult.Success)
+                {
+                    logger.Error($"Failed to obscure secret key: {obscureResult.Error}");
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"密钥加密失败：{obscureResult.Error}",
+                        "配置失败"
+                    );
+                    return false;
+                }
+
+                var obscuredSecret = obscureResult.Output.Trim();
+
+                // 使用 rclone config create 创建 S3 配置
+                // Cloudflare R2 需要特定的 provider 和 region 设置
+                var result = await ExecuteRcloneCommandAsync(
+                    $"config create {configName} s3 " +
+                    $"provider Cloudflare " +
+                    $"access_key_id \"{accessKey.SelectedString.Trim()}\" " +
+                    $"secret_access_key \"{obscuredSecret}\" " +
+                    $"endpoint \"{endpoint}\" " +
+                    $"acl private " +
+                    $"--config \"{RcloneConfigPath}\"",
+                    TimeSpan.FromSeconds(30)
+                );
+
+                if (result.Success && IsConfigured(provider))
+                {
+                    logger.Info($"{displayName} configured successfully");
+                    
+                    // 保存 bucket 名称到设置（通过更新 RemoteRootFolder 使用 bucket）
+                    // 注意：R2 需要在路径前添加 bucket 名称
+                    // 这里我们使用一个特殊的方式：将 bucket 名称写入配置文件
+                    await SaveR2BucketConfigAsync(bucketName.SelectedString.Trim());
+                    
+                    // 创建 SaveManager 根目录
+                    await EnsureRemoteRootDirectoryAsync(provider);
+                    
+                    playniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgR2ConfigSuccess"), bucketName.SelectedString.Trim()),
+                        ResourceProvider.GetString("LOCSaveManagerMsgConfigSuccess"),
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information
+                    );
+                    return true;
+                }
+                else
+                {
+                    logger.Error($"Failed to configure {displayName}: {result.Error}");
+                    playniteApi.Dialogs.ShowErrorMessage(
+                        $"Cloudflare R2 配置失败：{result.Error}\n\n请检查 Account ID、Access Key 和 Secret Key 是否正确。",
+                        "配置失败"
+                    );
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to configure S3 provider");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 保存 R2 bucket 配置
+        /// </summary>
+        private async Task SaveR2BucketConfigAsync(string bucketName)
+        {
+            try
+            {
+                var r2ConfigPath = Path.Combine(dataPath, "r2_config.json");
+                var config = new { Bucket = bucketName };
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(config);
+                File.WriteAllText(r2ConfigPath, json);
+                logger.Info($"R2 bucket config saved: {bucketName}");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to save R2 bucket config");
+            }
+        }
+
+        /// <summary>
+        /// 获取 R2 bucket 名称
+        /// </summary>
+        private string GetR2BucketName()
+        {
+            try
+            {
+                var r2ConfigPath = Path.Combine(dataPath, "r2_config.json");
+                if (File.Exists(r2ConfigPath))
+                {
+                    var json = File.ReadAllText(r2ConfigPath);
+                    dynamic config = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+                    return config?.Bucket ?? "playnite-saves";
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to read R2 bucket config");
+            }
+            return "playnite-saves";
         }
 
         /// <summary>
@@ -463,7 +674,7 @@ namespace SaveManager.Services
             CancellationToken cancellationToken = default)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             // 确保父目录存在（对于 WebDAV 特别重要）
             var parentDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
@@ -517,7 +728,7 @@ namespace SaveManager.Services
             CancellationToken cancellationToken = default)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             try
             {
@@ -546,7 +757,52 @@ namespace SaveManager.Services
 
         #endregion
 
+        #region 删除操作
+
+        /// <summary>
+        /// 删除云端单个文件
+        /// </summary>
+        public async Task<bool> DeleteRemoteFileAsync(string remotePath, CloudProvider provider)
+        {
+            var configName = CloudProviderHelper.GetConfigName(provider);
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
+
+            try
+            {
+                logger.Info($"Deleting remote file: {remotePath}");
+
+                var result = await ExecuteRcloneCommandAsync(
+                    $"deletefile \"{fullRemotePath}\" --config \"{RcloneConfigPath}\"",
+                    ProcessTimeout
+                );
+
+                if (result.Success)
+                {
+                    logger.Info($"Remote file deleted: {remotePath}");
+                    return true;
+                }
+
+                // 如果文件不存在，也视为成功
+                if (IsNotFoundError(result))
+                {
+                    logger.Info($"Remote file not found (already deleted): {remotePath}");
+                    return true;
+                }
+
+                logger.Warn($"Failed to delete remote file: {result.Error}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Exception deleting remote file: {remotePath}");
+                return false;
+            }
+        }
+
+        #endregion
+
         #region 下载操作
+
 
         /// <summary>
         /// 从云端下载文件
@@ -558,7 +814,7 @@ namespace SaveManager.Services
             CancellationToken cancellationToken = default)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             // 确保目标目录存在
             var targetDir = Path.GetDirectoryName(localPath);
@@ -618,7 +874,7 @@ namespace SaveManager.Services
             string excludePattern = null)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             try
             {
@@ -655,11 +911,12 @@ namespace SaveManager.Services
 
         /// <summary>
         /// 检查远程文件是否存在
+        /// 返回：true=存在，false=不存在，null=连接失败/超时
         /// </summary>
-        public async Task<bool> RemoteFileExistsAsync(string remotePath, CloudProvider provider)
+        public async Task<bool?> RemoteFileExistsAsync(string remotePath, CloudProvider provider)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             try
             {
@@ -668,11 +925,30 @@ namespace SaveManager.Services
                     TimeSpan.FromSeconds(30)
                 );
 
-                return result.Success && !string.IsNullOrWhiteSpace(result.Output);
+                if (!result.Success)
+                {
+                    // 检查是否是"不存在"还是"连接失败"
+                    var errorLower = (result.Error ?? "").ToLower();
+                    if (errorLower.Contains("directory not found") || 
+                        errorLower.Contains("object not found") ||
+                        errorLower.Contains("file not found") ||
+                        errorLower.Contains("not found") ||
+                        errorLower.Contains("404"))
+                    {
+                        // 文件/目录不存在
+                        return false;
+                    }
+                    // 其他错误（超时、网络问题等）
+                    logger.Warn($"Cloud connection error when checking {remotePath}: {result.Error}");
+                    return null;
+                }
+
+                return !string.IsNullOrWhiteSpace(result.Output);
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                logger.Error(ex, $"Exception when checking remote file exists: {remotePath}");
+                return null; // 连接错误
             }
         }
 
@@ -682,7 +958,7 @@ namespace SaveManager.Services
         public async Task<DateTime?> GetRemoteFileModTimeAsync(string remotePath, CloudProvider provider)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
-            var fullRemotePath = $"{configName}:{RemoteRootFolder}/{remotePath}";
+            var fullRemotePath = $"{configName}:{GetFullRemoteRootPath(provider)}/{remotePath}";
 
             try
             {
@@ -750,9 +1026,17 @@ namespace SaveManager.Services
 
                 // 2. 检查 config.json 是否存在及其修改时间
                 var configExists = await RemoteFileExistsAsync("config.json", provider);
-                result.BackupExists = configExists;
+                
+                if (configExists == null)
+                {
+                    result.ConnectionSuccessful = false;
+                    result.ErrorMessage = "Connection timeout or error while checking config";
+                    return result;
+                }
+                
+                result.BackupExists = configExists == true;
 
-                if (configExists)
+                if (configExists == true)
                 {
                     result.BackupModTime = await GetRemoteFileModTimeAsync("config.json", provider);
                 }
@@ -870,10 +1154,10 @@ namespace SaveManager.Services
         /// <summary>
         /// 获取游戏在云端的备份目录路径
         /// </summary>
-        public string GetRemoteGamePath(Guid configId, string gameName)
+        public string GetRemoteGamePath(Guid configId, string gameName = null)
         {
-            var safeName = SanitizeGameName(gameName);
-            return $"Backups/{safeName}_{configId.ToString().Substring(0, 8)}";
+            // 只使用 ConfigId 作为文件夹名，避免不同设备上游戏名称不一致的问题
+            return $"Backups/{configId}";
         }
 
         /// <summary>
@@ -884,7 +1168,7 @@ namespace SaveManager.Services
             try
             {
                 var configName = CloudProviderHelper.GetConfigName(provider);
-                var remotePath = $"{configName}:{RemoteRootFolder}";
+                var remotePath = $"{configName}:{GetFullRemoteRootPath(provider)}";
 
                 logger.Info($"Deleting all cloud data at {remotePath}");
 

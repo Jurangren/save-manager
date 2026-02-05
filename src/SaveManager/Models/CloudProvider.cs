@@ -18,9 +18,14 @@ namespace SaveManager.Models
         OneDrive = 1,
 
         /// <summary>
-        /// 坚果云 (WebDAV)
+        /// 通用 WebDAV
         /// </summary>
-        Jianguoyun = 2
+        WebDAV = 2,
+
+        /// <summary>
+        /// Cloudflare R2 (S3 兼容)
+        /// </summary>
+        CloudflareR2 = 3
     }
 
     /// <summary>
@@ -39,8 +44,10 @@ namespace SaveManager.Models
                     return "gdrive";
                 case CloudProvider.OneDrive:
                     return "onedrive";
-                case CloudProvider.Jianguoyun:
-                    return "jianguoyun";
+                case CloudProvider.WebDAV:
+                    return "webdav";
+                case CloudProvider.CloudflareR2:
+                    return "cloudflare-r2";
                 default:
                     throw new ArgumentException($"Unsupported provider: {provider}");
             }
@@ -57,8 +64,10 @@ namespace SaveManager.Models
                     return "drive";
                 case CloudProvider.OneDrive:
                     return "onedrive";
-                case CloudProvider.Jianguoyun:
+                case CloudProvider.WebDAV:
                     return "webdav";
+                case CloudProvider.CloudflareR2:
+                    return "s3";
                 default:
                     throw new ArgumentException($"Unsupported provider: {provider}");
             }
@@ -75,19 +84,29 @@ namespace SaveManager.Models
                     return "Google Drive";
                 case CloudProvider.OneDrive:
                     return "OneDrive";
-                case CloudProvider.Jianguoyun:
-                    return "坚果云";
+                case CloudProvider.WebDAV:
+                    return "WebDAV";
+                case CloudProvider.CloudflareR2:
+                    return "Cloudflare R2";
                 default:
                     return provider.ToString();
             }
         }
 
         /// <summary>
-        /// 是否需要 WebDAV 配置（用户名密码）
+        /// 是否需要 WebDAV 配置（URL、用户名、密码）
         /// </summary>
         public static bool RequiresWebDAVConfig(CloudProvider provider)
         {
-            return provider == CloudProvider.Jianguoyun;
+            return provider == CloudProvider.WebDAV;
+        }
+
+        /// <summary>
+        /// 是否需要 S3 配置（Access Key, Secret Key, Endpoint）
+        /// </summary>
+        public static bool RequiresS3Config(CloudProvider provider)
+        {
+            return provider == CloudProvider.CloudflareR2;
         }
     }
 }

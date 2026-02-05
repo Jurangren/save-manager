@@ -226,6 +226,8 @@ namespace SaveManager.ViewModels
         private readonly IPlayniteAPI playniteApi;
         private readonly BackupService backupService;
         private readonly bool isFullMode;
+        private readonly CloudSyncManager cloudSyncManager;
+        private readonly Func<bool> getCloudSyncEnabled;
 
         /// <summary>
         /// 所有游戏匹配项（源数据）
@@ -378,11 +380,23 @@ namespace SaveManager.ViewModels
         /// </summary>
         public event Action<bool> RequestClose;
 
-        public GameMatchingViewModel(IPlayniteAPI playniteApi, BackupService backupService, bool fullMode = false)
+        /// <summary>
+        /// 窗口关闭回调
+        /// </summary>
+        public Action CloseAction { get; set; }
+
+        /// <summary>
+        /// 过滤的配置ID列表（仅显示这些配置）
+        /// </summary>
+        private readonly List<Guid> filterConfigIds = null;
+
+        public GameMatchingViewModel(IPlayniteAPI playniteApi, BackupService backupService, bool fullMode = false, CloudSyncManager cloudSyncManager = null, Func<bool> getCloudSyncEnabled = null)
         {
             this.playniteApi = playniteApi;
             this.backupService = backupService;
             this.isFullMode = fullMode;
+            this.cloudSyncManager = cloudSyncManager;
+            this.getCloudSyncEnabled = getCloudSyncEnabled;
 
             SaveCommand = new RelayCommand(Save);
             CancelCommand = new RelayCommand(Cancel);
@@ -393,6 +407,29 @@ namespace SaveManager.ViewModels
             DeleteConfigCommand = new RelayCommand<GameMatchingItem>(DeleteConfig);
 
             LoadData();
+        }
+
+        /// <summary>
+        /// 新配置模式的构造函数（仅显示指定的配置ID列表）
+        /// </summary>
+        public GameMatchingViewModel(IPlayniteAPI playniteApi, BackupService backupService, List<Guid> configIdsToShow, CloudSyncManager cloudSyncManager = null, Func<bool> getCloudSyncEnabled = null)
+        {
+            this.playniteApi = playniteApi;
+            this.backupService = backupService;
+            this.isFullMode = true; // 显示所有，包括已匹配的
+            this.filterConfigIds = configIdsToShow;
+            this.cloudSyncManager = cloudSyncManager;
+            this.getCloudSyncEnabled = getCloudSyncEnabled;
+
+            SaveCommand = new RelayCommand(Save);
+            CancelCommand = new RelayCommand(Cancel);
+            AutoMatchCommand = new RelayCommand(AutoMatchAll);
+            ClearMatchCommand = new RelayCommand<GameMatchingItem>(ClearMatch);
+            ToggleConfigSortCommand = new RelayCommand(ToggleConfigSort);
+            ToggleStatusSortCommand = new RelayCommand(ToggleStatusSort);
+            DeleteConfigCommand = new RelayCommand<GameMatchingItem>(DeleteConfig);
+
+            LoadDataForNewConfigs();
         }
 
         private void ToggleConfigSort()
@@ -452,6 +489,50 @@ namespace SaveManager.ViewModels
 
                 allMatchingItems.Add(item);
             }
+
+            ApplyFilterAndSort();
+        }
+
+        /// <summary>
+        /// 加载新配置数据（仅显示指定的配置ID）
+        /// </summary>
+        private void LoadDataForNewConfigs()
+        {
+            // 获取 Playnite 所有游戏
+            allGames = playniteApi.Database.Games.ToList();
+
+            // 获取所有游戏配置，但只处理指定的配置ID
+            var configs = backupService.GetAllGameConfigs()
+                .Where(c => filterConfigIds.Contains(c.ConfigId))
+                .ToList();
+
+            foreach (var config in configs)
+            {
+                var item = new GameMatchingItem
+                {
+                    Config = config,
+                    BackupCount = backupService.GetBackupsByConfigId(config.ConfigId).Count
+                };
+
+                // 尝试自动匹配
+                TryAutoMatch(item);
+
+                // 记录已匹配的 GameId
+                if (item.IsMatched && item.MatchedGame != null)
+                {
+                    matchedGameIds.Add(item.MatchedGame.Id);
+                }
+
+                // 设置可选游戏列表
+                UpdateAvailableGames(item);
+
+                allMatchingItems.Add(item);
+            }
+
+            // 默认按状态倒序排序（未匹配在上面）
+            _statusSortDirection = SortDirection.Descending;
+            OnPropertyChanged(nameof(StatusSortDirection));
+            OnPropertyChanged(nameof(StatusSortIcon));
 
             ApplyFilterAndSort();
         }
@@ -837,6 +918,23 @@ namespace SaveManager.ViewModels
 
             // 保存更新后的配置
             backupService.SaveAllConfigs();
+
+            // 如果启用了云同步，同步配置到云端
+            if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+            {
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        await cloudSyncManager.UploadConfigToCloudAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录日志但不阻止保存
+                        System.Diagnostics.Debug.WriteLine($"Failed to upload config after game matching save: {ex.Message}");
+                    }
+                });
+            }
 
             if (updatedCount > 0)
             {

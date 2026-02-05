@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -124,15 +125,20 @@ namespace SaveManager.ViewModels
 
         private readonly CloudSyncManager cloudSyncManager;
         private readonly RcloneService rcloneService;
+        private readonly Func<bool> getCloudSyncEnabled;
+        private readonly Func<bool> getRealtimeSyncEnabled;
 
         public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService, 
-            CloudSyncManager cloudSyncManager = null, RcloneService rcloneService = null)
+            CloudSyncManager cloudSyncManager = null, RcloneService rcloneService = null,
+            Func<bool> getCloudSyncEnabled = null, Func<bool> getRealtimeSyncEnabled = null)
         {
             this.game = game;
             this.playniteApi = playniteApi;
             this.backupService = backupService;
             this.cloudSyncManager = cloudSyncManager;
             this.rcloneService = rcloneService;
+            this.getCloudSyncEnabled = getCloudSyncEnabled;
+            this.getRealtimeSyncEnabled = getRealtimeSyncEnabled;
 
             SavePaths = new ObservableCollection<SavePathItem>();
             RestoreExcludePaths = new ObservableCollection<SavePathItem>();
@@ -658,6 +664,22 @@ namespace SaveManager.ViewModels
             }).ToList();
 
             backupService.SaveGameConfig(config);
+
+            // 如果启用了云同步，同步配置到云端
+            if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+            {
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        await cloudSyncManager.UploadConfigToCloudAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to upload config after save: {ex.Message}");
+                    }
+                });
+            }
         }
 
         private void CreateBackup()
@@ -681,9 +703,40 @@ namespace SaveManager.ViewModels
 
             try
             {
-                var backup = backupService.CreateBackup(game.Id, game.Name, noteResult.SelectedString);
+                SaveBackup backup = null;
+                
+                // 使用进度窗口创建备份
+                playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                {
+                    progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgCreatingBackup");
+                    progressArgs.IsIndeterminate = true;
+                    backup = backupService.CreateBackup(game.Id, game.Name, noteResult.SelectedString);
+                }, new Playnite.SDK.GlobalProgressOptions(
+                    ResourceProvider.GetString("LOCSaveManagerMsgCreatingBackup"), false)
+                {
+                    IsIndeterminate = true
+                });
+
+                if (backup == null)
+                {
+                    return;
+                }
+
                 Backups.Insert(0, backup);
-                playniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess"), backup.Name, backup.FormattedSize), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                
+                // 如果启用了云同步，直接进入同步流程
+                if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+                {
+                    SyncBackupWithBackgroundOption(backup);
+                }
+                else
+                {
+                    playniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess"), backup.Name, backup.FormattedSize), 
+                        "Save Manager", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -718,7 +771,18 @@ namespace SaveManager.ViewModels
                     }
 
                     // 传递 null 以忽略排除项
-                    backupService.RestoreBackup(backup, null);
+                    // 使用进度窗口还原备份
+                    playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                    {
+                        progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup");
+                        progressArgs.IsIndeterminate = true;
+                        backupService.RestoreBackup(backup, null);
+                    }, new Playnite.SDK.GlobalProgressOptions(
+                        ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup"), false)
+                    {
+                        IsIndeterminate = true
+                    });
+
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
@@ -761,7 +825,18 @@ namespace SaveManager.ViewModels
                         IsDirectory = p.IsDirectory
                     }).ToList();
 
-                    backupService.RestoreBackup(backup, excludePaths.Count > 0 ? excludePaths : null);
+                    // 使用进度窗口还原备份
+                    playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+                    {
+                        progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup");
+                        progressArgs.IsIndeterminate = true;
+                        backupService.RestoreBackup(backup, excludePaths.Count > 0 ? excludePaths : null);
+                    }, new Playnite.SDK.GlobalProgressOptions(
+                        ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup"), false)
+                    {
+                        IsIndeterminate = true
+                    });
+
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgRestoreSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
@@ -877,11 +952,50 @@ namespace SaveManager.ViewModels
                     SelectedBackups.Clear();
                     UpdateSelection(new System.Collections.ArrayList());
 
-                    string successMsg = backupsToDelete.Count > 1 
-                        ? $"Deleted {backupsToDelete.Count} backups." 
-                        : ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess");
-                        
-                    playniteApi.Dialogs.ShowMessage(successMsg, "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // 如果启用了云同步，询问用户是否从云端删除
+                    if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+                    {
+                        var syncOptions = new List<Playnite.SDK.MessageBoxOption>
+                        {
+                            new Playnite.SDK.MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerMsgSyncingToCloud"), true, false),
+                            new Playnite.SDK.MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerBtnBackgroundSync"), false, false),
+                            new Playnite.SDK.MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerBtnCancel"), false, true)
+                        };
+
+                        string deleteSuccessMsg = backupsToDelete.Count > 1 
+                            ? $"Deleted {backupsToDelete.Count} backups." 
+                            : ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess");
+
+                        var syncResult = playniteApi.Dialogs.ShowMessage(
+                            deleteSuccessMsg + "\n\n" + ResourceProvider.GetString("LOCSaveManagerMsgDeletingFromCloud").Replace("{0}", "").TrimEnd() + "?",
+                            "Save Manager",
+                            MessageBoxImage.Question,
+                            syncOptions);
+
+                        if (syncResult == syncOptions[0])
+                        {
+                            // 前台同步删除
+                            SyncBackupsDeleteForeground(backupsToDelete);
+                        }
+                        else if (syncResult == syncOptions[1])
+                        {
+                            // 后台同步删除
+                            SyncBackupsDeleteBackground(backupsToDelete);
+                            playniteApi.Dialogs.ShowMessage(
+                                ResourceProvider.GetString("LOCSaveManagerMsgBackgroundSyncStarted"),
+                                "Save Manager",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Information);
+                        }
+                    }
+                    else
+                    {
+                        string successMsg = backupsToDelete.Count > 1 
+                            ? $"Deleted {backupsToDelete.Count} backups." 
+                            : ResourceProvider.GetString("LOCSaveManagerMsgDeleteSuccess");
+                            
+                        playniteApi.Dialogs.ShowMessage(successMsg, "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1003,6 +1117,293 @@ namespace SaveManager.ViewModels
             // 刷新命令状态
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
+
+        #region 云同步辅助方法
+
+        /// <summary>
+        /// 前台同步备份到云端（上传或删除）
+        /// </summary>
+        private void SyncBackupToCloudForeground(SaveBackup backup, bool isUpload)
+        {
+            bool success = false;
+            playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+            {
+                progressArgs.IsIndeterminate = true;
+                progressArgs.Text = isUpload 
+                    ? string.Format(ResourceProvider.GetString("LOCSaveManagerMsgUploadingToCloud"), backup.Name)
+                    : string.Format(ResourceProvider.GetString("LOCSaveManagerMsgDeletingFromCloud"), backup.Name);
+
+                var task = isUpload 
+                    ? cloudSyncManager.UploadBackupToCloudAsync(backup, game.Name)
+                    : cloudSyncManager.DeleteBackupFromCloudAsync(backup);
+                task.Wait();
+                success = task.Result;
+            }, new Playnite.SDK.GlobalProgressOptions(
+                ResourceProvider.GetString("LOCSaveManagerMsgSyncingToCloud"), false)
+            {
+                IsIndeterminate = true
+            });
+
+            if (!success)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncFailed"), backup.Name),
+                    "Cloud Sync Error");
+            }
+        }
+
+        /// <summary>
+        /// 同步备份到云端，带后台同步选项
+        /// </summary>
+        private void SyncBackupWithBackgroundOption(SaveBackup backup)
+        {
+            bool success = false;
+            bool useBackground = false;
+            var cts = new System.Threading.CancellationTokenSource();
+            var gameName = game.Name;
+
+            // 启动后台上传任务
+            var uploadTask = System.Threading.Tasks.Task.Run(async () =>
+            {
+                return await cloudSyncManager.UploadBackupToCloudAsync(backup, gameName);
+            });
+
+            // 显示进度窗口，带取消（后台同步）按钮
+            playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+            {
+                progressArgs.IsIndeterminate = true;
+                progressArgs.Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgUploadingToCloud"), backup.Name);
+
+                // 等待任务完成或用户取消
+                while (!uploadTask.IsCompleted && !progressArgs.CancelToken.IsCancellationRequested)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+
+                if (progressArgs.CancelToken.IsCancellationRequested)
+                {
+                    // 用户点击了"后台同步"按钮
+                    useBackground = true;
+                }
+                else
+                {
+                    success = uploadTask.Result;
+                }
+            }, new Playnite.SDK.GlobalProgressOptions(
+                ResourceProvider.GetString("LOCSaveManagerMsgSyncingToCloud"), true)
+            {
+                IsIndeterminate = true
+            });
+
+            if (useBackground)
+            {
+                // 后台继续上传，完成后通知
+                uploadTask.ContinueWith(t =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        if (t.IsCompleted && !t.IsFaulted && t.Result)
+                        {
+                            playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                                $"SaveManager_CloudSync_{backup.Name}_{DateTime.Now.Ticks}",
+                                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupUploadComplete"), backup.Name),
+                                Playnite.SDK.NotificationType.Info));
+                        }
+                        else
+                        {
+                            playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                                $"SaveManager_CloudSync_Error_{backup.Name}",
+                                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncFailed"), backup.Name),
+                                Playnite.SDK.NotificationType.Error));
+                        }
+                    });
+                });
+            }
+            else if (!success)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncFailed"), backup.Name),
+                    "Cloud Sync Error");
+            }
+        }
+
+        /// <summary>
+        /// 前台同步删除多个备份
+        /// </summary>
+        private void SyncBackupsDeleteForeground(List<SaveBackup> backups)
+        {
+            int failedCount = 0;
+            playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
+            {
+                progressArgs.IsIndeterminate = false;
+                progressArgs.ProgressMaxValue = backups.Count;
+
+                for (int i = 0; i < backups.Count; i++)
+                {
+                    var backup = backups[i];
+                    progressArgs.CurrentProgressValue = i;
+                    progressArgs.Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgDeletingFromCloud"), backup.Name);
+
+                    var task = cloudSyncManager.DeleteBackupFromCloudAsync(backup);
+                    task.Wait();
+                    if (!task.Result) failedCount++;
+                }
+                progressArgs.CurrentProgressValue = backups.Count;
+            }, new Playnite.SDK.GlobalProgressOptions(
+                ResourceProvider.GetString("LOCSaveManagerMsgSyncingToCloud"), false)
+            {
+                IsIndeterminate = false
+            });
+
+            if (failedCount > 0)
+            {
+                playniteApi.Dialogs.ShowErrorMessage(
+                    $"Failed to delete {failedCount} backup(s) from cloud.",
+                    "Cloud Sync Error");
+            }
+        }
+
+        /// <summary>
+        /// 后台同步备份到云端
+        /// </summary>
+        private void SyncBackupToCloudBackground(SaveBackup backup, bool isUpload)
+        {
+            var gameName = game.Name;
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    bool success = isUpload 
+                        ? await cloudSyncManager.UploadBackupToCloudAsync(backup, gameName)
+                        : await cloudSyncManager.DeleteBackupFromCloudAsync(backup);
+
+                    // 在UI线程发送通知
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        if (success)
+                        {
+                            var message = isUpload
+                                ? string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupUploadComplete"), backup.Name)
+                                : string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupDeleteComplete"), backup.Name);
+                            
+                            // Playnite 通知
+                            playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                                $"SaveManager_CloudSync_{backup.Name}_{DateTime.Now.Ticks}",
+                                message,
+                                Playnite.SDK.NotificationType.Info));
+
+                            // Windows 通知
+                            ShowWindowsNotification(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncComplete"), message);
+                        }
+                        else
+                        {
+                            var message = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncFailed"), backup.Name);
+                            
+                            playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                                $"SaveManager_CloudSync_Error_{backup.Name}",
+                                message,
+                                Playnite.SDK.NotificationType.Error));
+
+                            ShowWindowsNotification("Save Manager", message);
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                            $"SaveManager_CloudSync_Error_{backup.Name}",
+                            $"Cloud sync error: {ex.Message}",
+                            Playnite.SDK.NotificationType.Error));
+                    });
+                }
+            });
+        }
+
+        /// <summary>
+        /// 后台同步删除多个备份
+        /// </summary>
+        private void SyncBackupsDeleteBackground(List<SaveBackup> backups)
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                int successCount = 0;
+                int failedCount = 0;
+
+                foreach (var backup in backups)
+                {
+                    try
+                    {
+                        var success = await cloudSyncManager.DeleteBackupFromCloudAsync(backup);
+                        if (success) successCount++;
+                        else failedCount++;
+                    }
+                    catch
+                    {
+                        failedCount++;
+                    }
+                }
+
+                // 在UI线程发送通知
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (failedCount == 0)
+                    {
+                        var message = $"Successfully deleted {successCount} backup(s) from cloud.";
+                        
+                        playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                            $"SaveManager_CloudSync_DeleteBatch_{DateTime.Now.Ticks}",
+                            message,
+                            Playnite.SDK.NotificationType.Info));
+
+                        ShowWindowsNotification(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncComplete"), message);
+                    }
+                    else
+                    {
+                        var message = $"Deleted {successCount} backup(s), failed {failedCount}.";
+                        
+                        playniteApi.Notifications.Add(new Playnite.SDK.NotificationMessage(
+                            $"SaveManager_CloudSync_DeleteBatch_Error",
+                            message,
+                            Playnite.SDK.NotificationType.Error));
+
+                        ShowWindowsNotification("Save Manager", message);
+                    }
+                });
+            });
+        }
+
+        /// <summary>
+        /// 显示 Windows 通知
+        /// </summary>
+        private void ShowWindowsNotification(string title, string message)
+        {
+            try
+            {
+                // 使用 Windows 10 Toast 通知
+                var notifyIcon = new System.Windows.Forms.NotifyIcon();
+                notifyIcon.Icon = System.Drawing.SystemIcons.Information;
+                notifyIcon.Visible = true;
+                notifyIcon.BalloonTipTitle = title;
+                notifyIcon.BalloonTipText = message;
+                notifyIcon.BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info;
+                notifyIcon.ShowBalloonTip(3000);
+
+                // 延迟释放资源
+                System.Threading.Tasks.Task.Delay(5000).ContinueWith(_ =>
+                {
+                    notifyIcon.Visible = false;
+                    notifyIcon.Dispose();
+                });
+            }
+            catch
+            {
+                // 忽略通知错误
+            }
+        }
+
+        #endregion
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {

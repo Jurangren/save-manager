@@ -138,6 +138,8 @@ Are you sure you want to continue?</sys:String>
 
     <!-- Cloud Sync -->
     <sys:String x:Key="LOCSaveManagerMsgSaveConflictOptions">Save conflict detected!&#x0a;&#x0a;Local save: {0}, Size: {1}&#x0a;Cloud save: {2}, Size: {3}&#x0a;&#x0a;Please choose an action:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNewest"> (Newest)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRecommended"> (Recommended)</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnPullCloud">Pull from Cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnKeepLocalAndPush">Keep Local &amp; Push</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnCancel">Cancel</sys:String>
@@ -176,28 +178,32 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">Matched successfully!</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigTooltip">Delete this cloud config folder</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigConfirm">Are you sure you want to delete cloud folder "{0}"?&#x0a;&#x0a;WARNING: This will permanently delete all cloud backups for this game! This cannot be undone.</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleGameMatchingNew">New Game Backups Detected from Cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSyncFailed">Config sync failed: {0}</sys:String>
 
     <!-- Cloud Sync Settings -->
     <sys:String x:Key="LOCSaveManagerCloudSync">Cloud Sync</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleCloudSync">☁️ Cloud Sync</sys:String>
     <sys:String x:Key="LOCSaveManagerEnableCloudSync">Enable Cloud Sync (Rclone)</sys:String>
     <sys:String x:Key="LOCSaveManagerEnableCloudSyncTooltip">Enable cloud backup synchronization using Rclone</sys:String>
-    <sys:String x:Key="LOCSaveManagerConfigureCloud">Configure Rclone</sys:String>
-    <sys:String x:Key="LOCSaveManagerConfigureCloudTooltip">Launch Rclone wizard to connect cloud drive</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloud">Configure Cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloudTooltip">Configure cloud service connection</sys:String>
     <sys:String x:Key="LOCSaveManagerCloudProvider">Cloud Provider:</sys:String>
     <sys:String x:Key="LOCSaveManagerCloudProviderTooltip">Select cloud storage provider for sync</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloud">Verify Connection</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloudTooltip">Test cloud service connection status</sys:String>
-    <sys:String x:Key="LOCSaveManagerPullAllData">Pull All Data from Cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerPullAllData">Pull Backup Data (Except Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllDataTooltip">Download all configs and backups from cloud (Use with caution)</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllData">Push All Data to Cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllDataTooltip">Upload all local configs and backups to cloud</sys:String>
     
     <!-- Real-time Sync -->
-    <sys:String x:Key="LOCSaveManagerRealtimeSync">Real-time Save Sync</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">Download from cloud on game start, upload on game stop</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">Cloud sync real-time saves</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">Disabling real-time sync will stop automatic uploads. You can still manually create and upload backups.</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSync">Enable Save Version Tracking and Auto-Create Latest Backup</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">Automatically create a backup snapshot of the latest save after game stops, and upload to cloud when cloud sync is enabled</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">Automatically track save versions and sync to cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">Disabling version tracking will prevent cloud sync from working properly. Saves created afterwards may frequently cause conflicts when restoring, even if cloud sync is enabled later. If you need cloud sync now or in the future, it is strongly recommended NOT to disable this feature!</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStart">Sync config on every game start</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStartTooltip">Before each game starts, pull the latest config file from cloud to ensure it stays in sync with other devices</sys:String>
 
     <!-- Cross Device Management -->
     <sys:String x:Key="LOCSaveManagerDataManagement">Data Management</sys:String>
@@ -230,14 +236,17 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConnectionSuccess">Connected successfully! Cloud sync ready.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConnectionFailed">Connection failed. Check config or network.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgInitializingCloud">Initializing cloud sync service...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCreatingBackup">Creating backup...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRestoringBackup">Restoring backup...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPushingData">Pushing data to cloud...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgPushDataSuccess">Data pushed successfully!</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushingProgress">Pushing ({0}/{1})</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushDataSuccess">Data pushed successfully! Uploaded {0} backups.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingData">Pulling data from cloud...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullDataSuccessDetail">Successfully pulled: {0} configs, {1} backups.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullDataFailed">Failed to pull data</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgGameDirNotAvailable">Game directory unavailable (Game not installed?)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudHasDataOptions">Cloud data found for this game. Select action:</sys:String>
-    <sys:String x:Key="LOCSaveManagerBtnPullConfigOnly">Pull Config Only</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnPullConfigOnly">Pull Config Only (Recommended)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingConfigOnly">Pulling config...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullConfigSuccess">Config pulled successfully!</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnSkipPull">Skip</sys:String>
@@ -246,15 +255,18 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgNoBackupOnCloud">No backup on cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDownloadingBackup">Downloading backup...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDownloadBackupFailed">Download backup failed</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDownloadFailed">Failed to download backup from cloud</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncNotEnabled">Cloud sync is not enabled</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgUploadingBackups">Uploading backup queue...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudUploadSuccess">Cloud upload success ({0})</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">Syncing config...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgPullingLatest">Pulling latest save...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">First sync complete</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">First cloud sync for this game. Pull data now?&#x0a;&#x0a;If skipped, local config may overwrite cloud config.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">Syncing SaveManager config...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullingLatest">Pulling and restoring latest save...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">First push complete</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">Config file pushed to cloud. Push all backups now? (First push may take some time)&#x0a;&#x0a;You can also manually click "Push All Data" button later.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">Real-time sync snapshot created: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPulled">Saves restored from cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPullFailed">Failed to pull cloud save: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudConnectionFailed">Cloud connection failed or timed out, please check your network</sys:String>
     
     <!-- Excludes -->
     <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">Restore Exclusions</sys:String>
@@ -279,5 +291,40 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerOpenDataFolder">Open Data Folder</sys:String>
     <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">Open the folder where backup data is stored</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnPullAllData">Pull Data</sys:String>
+
+    <!-- Restore and update Latest -->
+    <sys:String x:Key="LOCSaveManagerMsgRestoreUpdateLatest">Restored successfully!&#x0a;&#x0a;Do you want to set this as the current version and push to cloud?&#x0a;&#x0a;If not, cloud sync may overwrite this restore on next game start.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUpdatingLatest">Updating and pushing to cloud...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgLatestUpdated">Updated as current version and pushed to cloud!</sys:String>
+
+    <!-- Cloud sync operations -->
+    <sys:String x:Key="LOCSaveManagerMsgSyncingToCloud">Syncing to cloud...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUploadingToCloud">Uploading to cloud: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeletingFromCloud">Deleting from cloud: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnBackgroundSync">Background Sync</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackgroundSyncStarted">Sync will continue in background</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncComplete">Cloud sync complete</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupUploadComplete">Backup uploaded to cloud: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupDeleteComplete">Backup deleted from cloud: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncFailed">Cloud sync failed: {0}</sys:String>
+
+    <!-- Cloudflare R2 Configuration -->
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2AccountId">Enter Cloudflare Account ID:&#x0a;&#x0a;(Found on Cloudflare Dashboard > R2 > Overview, on the right side)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2AccessKey">Enter R2 Access Key ID:&#x0a;&#x0a;(Create in R2 > Manage R2 API Tokens)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2SecretKey">Enter R2 Secret Access Key:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2Bucket">Enter R2 Bucket name:&#x0a;&#x0a;(You need to create the Bucket in Cloudflare R2 first)</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgR2ConfigSuccess">Cloudflare R2 configured successfully!&#x0a;&#x0a;Your saves will be synced to the PlayniteSaveManager folder in Bucket "{0}".</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSuccess">Configuration Successful</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigFailed">Configuration Failed</sys:String>
+
+    <!-- WebDAV General -->
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVUsername">Account</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVPassword">Password</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPasswordEncryptFailed">Password encryption failed. Please try again.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVUrl">Enter WebDAV server full URL:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVUsername">Enter WebDAV account:</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVPassword">Enter WebDAV password (some services require app-specific passwords):</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVConfigSuccess">WebDAV configured successfully!&#x0a;&#x0a;Server URL: {0}&#x0a;Your saves will be synced to the PlayniteSaveManager folder.</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVConfigFailed">WebDAV configuration failed. Please check your server URL and credentials.</sys:String>
 
 </ResourceDictionary>

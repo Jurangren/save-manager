@@ -138,6 +138,8 @@
 
     <!-- 云同步相关 -->
     <sys:String x:Key="LOCSaveManagerMsgSaveConflictOptions">检测到存档冲突！&#x0a;&#x0a;本地存档：{0}，大小：{1}&#x0a;云端存档：{2}，大小：{3}&#x0a;&#x0a;请选择要执行的操作：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgNewest">（时间最新）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRecommended"> (建议)</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnPullCloud">拉取云端</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnKeepLocalAndPush">保留本地并推送</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnCancel">取消</sys:String>
@@ -175,29 +177,33 @@
     <sys:String x:Key="LOCSaveManagerGameMatchingClearMatch">取消匹配</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingSaveSuccess">匹配关系已成功保存！</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigTooltip">删除此云端配置文件夹</sys:String>
-    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigConfirm">确定要删除云端文件夹 "{0}" 吗？&#x0a;&#x0a;警告：这将永久删除该游戏的所有云端备份文件！此操作不可撤销。</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingDeleteConfigConfirm">确定要删除云端文件夹 "{0}" 吗?&#x0a;&#x0a;警告：这将永久删除该游戏的所有云端备份文件！此操作不可撤销。</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleGameMatchingNew">检测到云端新增的游戏备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSyncFailed">同步配置失败：{0}</sys:String>
 
     <!-- 云同步设置 -->
     <sys:String x:Key="LOCSaveManagerCloudSync">云同步</sys:String>
     <sys:String x:Key="LOCSaveManagerTitleCloudSync">☁️ 云同步</sys:String>
     <sys:String x:Key="LOCSaveManagerEnableCloudSync">启用云同步 (基于Rclone)</sys:String>
     <sys:String x:Key="LOCSaveManagerEnableCloudSyncTooltip">启用此选项将使用Rclone进行云端备份同步</sys:String>
-    <sys:String x:Key="LOCSaveManagerConfigureCloud">配置 Rclone</sys:String>
-    <sys:String x:Key="LOCSaveManagerConfigureCloudTooltip">运行 Rclone 配置向导以连接云盘</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloud">配置云服务</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigureCloudTooltip">配置云服务连接参数</sys:String>
     <sys:String x:Key="LOCSaveManagerCloudProvider">云服务提供商:</sys:String>
     <sys:String x:Key="LOCSaveManagerCloudProviderTooltip">选择用于同步的云存储服务</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloud">验证连接</sys:String>
     <sys:String x:Key="LOCSaveManagerVerifyCloudTooltip">测试云服务连接状态</sys:String>
-    <sys:String x:Key="LOCSaveManagerPullAllData">从云端拉取所有数据</sys:String>
+    <sys:String x:Key="LOCSaveManagerPullAllData">从云端拉取备份数据(除Latest)</sys:String>
     <sys:String x:Key="LOCSaveManagerPullAllDataTooltip">下载云端所有游戏的配置和备份（谨慎使用）</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllData">推送到云端 (所有数据)</sys:String>
     <sys:String x:Key="LOCSaveManagerPushAllDataTooltip">上传所有本地配置和备份到云端</sys:String>
     
     <!-- 实时同步 -->
-    <sys:String x:Key="LOCSaveManagerRealtimeSync">实时存档同步</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">游戏启动时从云端下载，结束后上传到云端</sys:String>
-    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">云同步实时存档</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">禁用实时同步后，游戏存档将不再自动上传到云端。你仍然可以手动创建备份并上传。</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSync">启用存档版本记录并自动创建最新存档备份</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">游戏结束后自动创建最新存档的备份快照，并在启用云同步时自动上传到云端</sys:String>
+    <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">自动记录存档版本并同步到云端</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">禁用版本记录后，云同步将无法正常工作，且在此之后创建的存档即使在之后开启云同步，还原时也会频繁造成存档冲突。如果你现在或者未来需要使用云同步，强烈建议不要关闭该功能！</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStart">每次游戏启动前同步配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStartTooltip">在每次游戏启动前，先从云端拉取最新的配置文件，确保配置与其他设备保持同步</sys:String>
 
     <!-- 跨设备管理 -->
     <sys:String x:Key="LOCSaveManagerDataManagement">数据管理</sys:String>
@@ -230,14 +236,17 @@
     <sys:String x:Key="LOCSaveManagerMsgConnectionSuccess">连接成功！云同步已就绪。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConnectionFailed">连接失败。请检查配置或网络。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgInitializingCloud">正在初始化云同步服务...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCreatingBackup">正在创建备份...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgRestoringBackup">正在还原备份...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPushingData">正在推送数据到云端...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgPushDataSuccess">数据推送成功！</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushingProgress">正在推送 ({0}/{1})</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPushDataSuccess">数据推送成功！共上传了 {0} 个存档。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingData">正在从云端拉取数据...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullDataSuccessDetail">成功拉取：{0} 个配置，{1} 个备份。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullDataFailed">拉取数据失败</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgGameDirNotAvailable">游戏目录不可用 (游戏未安装?)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudHasDataOptions">云端发现此游戏的数据。选择操作：</sys:String>
-    <sys:String x:Key="LOCSaveManagerBtnPullConfigOnly">仅拉取配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnPullConfigOnly">仅拉取配置(推荐)</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullingConfigOnly">正在拉取配置...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgPullConfigSuccess">配置拉取成功！</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnSkipPull">跳过</sys:String>
@@ -246,15 +255,18 @@
     <sys:String x:Key="LOCSaveManagerMsgNoBackupOnCloud">云端无备份</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDownloadingBackup">正在下载备份...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDownloadBackupFailed">下载备份失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDownloadFailed">从云端下载备份失败</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncNotEnabled">云同步未启用</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgUploadingBackups">正在上传备份队列...</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudUploadSuccess">云端上传成功 ({0})</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">正在同步配置...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgPullingLatest">正在拉取最新存档...</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">首次同步完成</sys:String>
-    <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">这是该游戏的首次云同步。是否要现在拉取云端数据？&#x0a;&#x0a;如果不拉取，本地配置可能会覆盖云端配置。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgSyncingConfig">正在同步SaveManager配置...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPullingLatest">正在拉取并还原最新存档...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgFirstSyncComplete">首次推送完成</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfirmFirstSync">云端已首次推送配置文件，是否现在就推送所有备份到云端？（首次推送较为耗时）&#x0a;&#x0a;你也可以稍后手动点击"推送所有数据"按钮进行推送。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgRealtimeSyncCreated">已创建实时同步快照: {0}</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPulled">已从云端恢复存档</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgCloudSyncPullFailed">云存档拉取失败: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudConnectionFailed">云端连接失败或超时，请检查网络连接</sys:String>
     
     <!-- 排除项 -->
     <sys:String x:Key="LOCSaveManagerRestoreExcludeTitle">还原排除项</sys:String>
@@ -279,5 +291,40 @@
     <sys:String x:Key="LOCSaveManagerOpenDataFolder">打开数据文件夹</sys:String>
     <sys:String x:Key="LOCSaveManagerOpenDataFolderTooltip">打开存储备份数据的文件夹</sys:String>
     <sys:String x:Key="LOCSaveManagerBtnPullAllData">拉取数据</sys:String>
+
+    <!-- 还原后更新Latest -->
+    <sys:String x:Key="LOCSaveManagerMsgRestoreUpdateLatest">还原成功！&#x0a;&#x0a;是否将此版本设为当前版本并推送到云端？&#x0a;&#x0a;如果不推送，下次启动游戏时云同步可能会覆盖此次还原。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUpdatingLatest">正在更新并推送到云端...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgLatestUpdated">已更新为当前版本并推送到云端！</sys:String>
+
+    <!-- 云端同步操作 -->
+    <sys:String x:Key="LOCSaveManagerMsgSyncingToCloud">正在同步到云端...</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgUploadingToCloud">正在上传到云端: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgDeletingFromCloud">正在从云端删除: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnBackgroundSync">后台同步</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackgroundSyncStarted">同步将在后台继续进行</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncComplete">云同步完成</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupUploadComplete">备份已上传到云端: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupDeleteComplete">已从云端删除备份: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgCloudSyncFailed">云同步失败: {0}</sys:String>
+
+    <!-- Cloudflare R2 配置 -->
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2AccountId">请输入 Cloudflare Account ID：&#x0a;&#x0a;（可在 Cloudflare Dashboard > R2 > 概览 页面右侧找到）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2AccessKey">请输入 R2 Access Key ID：&#x0a;&#x0a;（在 R2 > 管理 R2 API 令牌 中创建）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2SecretKey">请输入 R2 Secret Access Key：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterR2Bucket">请输入 R2 Bucket 名称：&#x0a;&#x0a;（需要先在 Cloudflare R2 中创建 Bucket）</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgR2ConfigSuccess">Cloudflare R2 配置成功！&#x0a;&#x0a;您的存档将同步到 Bucket "{0}" 的 PlayniteSaveManager 文件夹中。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigSuccess">配置成功</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgConfigFailed">配置失败</sys:String>
+
+    <!-- WebDAV 通用 -->
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVUsername">账号</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVPassword">密码</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgPasswordEncryptFailed">密码加密失败，请重试。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVUrl">请输入 WebDAV 服务器完整地址：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVUsername">请输入 WebDAV 账号：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgEnterWebDAVPassword">请输入 WebDAV 密码 (部分服务需要使用应用专用密码)：</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVConfigSuccess">WebDAV 配置成功！&#x0a;&#x0a;服务器地址: {0}&#x0a;您的存档将同步到 PlayniteSaveManager 文件夹中。</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgWebDAVConfigFailed">WebDAV 配置失败，请检查服务器地址和账号密码是否正确。</sys:String>
 
 </ResourceDictionary>

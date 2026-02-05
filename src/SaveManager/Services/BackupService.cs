@@ -1093,8 +1093,21 @@ namespace SaveManager.Services
                     {
                         // 重新创建快照（这将基于当前磁盘文件生成 Latest.zip）
                         // 并且基于被还原备份的历史记录
-                        CreateRealtimeSyncSnapshot(game.Id, game.Name, backup.VersionHistory);
+                        var newLatest = CreateRealtimeSyncSnapshot(game.Id, game.Name, backup.VersionHistory);
                         logger.Info($"Re-created Latest.zip after restore for game {game.Name}");
+                        
+                        // 关键：更新 config 中的 CloudLatestCRC 和 CloudVersionHistory
+                        // 这样下次启动游戏时，本地和云端的CRC会一致，不会判断为落后
+                        var config = GetGameConfig(game.Id);
+                        if (config != null && newLatest != null)
+                        {
+                            config.CloudLatestCRC = newLatest.CRC;
+                            config.CloudVersionHistory = newLatest.VersionHistory != null 
+                                ? new List<string>(newLatest.VersionHistory) 
+                                : new List<string>();
+                            SaveData();
+                            logger.Info($"Updated CloudLatestCRC to {newLatest.CRC} after restore");
+                        }
                     }
                     else
                     {
@@ -1442,23 +1455,24 @@ namespace SaveManager.Services
         /// <summary>
         /// 获取游戏的备份目录（使用 ConfigId）
         /// </summary>
-        public string GetGameBackupDirectory(Guid configId, string gameName)
+        public string GetGameBackupDirectory(Guid configId, string gameName = null)
         {
-            return Path.Combine(backupsPath, SanitizeFileName(gameName) + "_" + configId.ToString("N").Substring(0, 8));
+            // 只使用 ConfigId 作为文件夹名，与云端保持一致
+            return Path.Combine(backupsPath, configId.ToString());
         }
 
         /// <summary>
         /// 获取游戏的备份目录（通过 GameId 查找）
         /// </summary>
-        public string GetGameBackupDirectoryByGameId(Guid gameId, string gameName)
+        public string GetGameBackupDirectoryByGameId(Guid gameId, string gameName = null)
         {
             var config = GetGameConfig(gameId);
             if (config != null)
             {
-                return GetGameBackupDirectory(config.ConfigId, gameName);
+                return GetGameBackupDirectory(config.ConfigId);
             }
             // 如果没有配置，返回一个基于 gameId 的临时路径（向后兼容）
-            return Path.Combine(backupsPath, SanitizeFileName(gameName) + "_" + gameId.ToString("N").Substring(0, 8));
+            return Path.Combine(backupsPath, gameId.ToString());
         }
 
         /// <summary>

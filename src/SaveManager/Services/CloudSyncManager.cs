@@ -32,6 +32,19 @@ namespace SaveManager.Services
         public Func<bool> GetCloudSyncEnabled { get; set; }
 
         /// <summary>
+        /// 配置同步结果
+        /// </summary>
+        public class ConfigSyncResult
+        {
+            public bool Success { get; set; }
+            public string ErrorMessage { get; set; }
+            /// <summary>
+            /// 新增的配置ID列表（之前本地没有的）
+            /// </summary>
+            public List<Guid> NewConfigIds { get; set; } = new List<Guid>();
+        }
+
+        /// <summary>
         /// config.json 在云端的路径
         /// </summary>
         private const string RemoteConfigPath = "config.json";
@@ -48,6 +61,39 @@ namespace SaveManager.Services
             this.rcloneService = rcloneService;
             this.playniteApi = playniteApi;
             this.logger = logger;
+        }
+
+        /// <summary>
+        /// 清理旧的 config.json 备份文件，只保留最近的 N 个
+        /// </summary>
+        private void CleanupOldConfigBackups(string directory, int keepCount)
+        {
+            try
+            {
+                var backupFiles = Directory.GetFiles(directory, "config.json.backup_*")
+                    .OrderByDescending(f => f)  // 按文件名降序（新的在前）
+                    .ToList();
+
+                if (backupFiles.Count <= keepCount) return;
+
+                // 删除超出数量的旧备份
+                foreach (var oldFile in backupFiles.Skip(keepCount))
+                {
+                    try
+                    {
+                        File.Delete(oldFile);
+                        logger.Info($"Deleted old config backup: {Path.GetFileName(oldFile)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Warn(ex, $"Failed to delete old config backup: {oldFile}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Failed to cleanup old config backups");
+            }
         }
 
         #region 启动时同步
@@ -97,7 +143,15 @@ namespace SaveManager.Services
             try
             {
                 // 检查云端是否存在 config.json
-                if (!await rcloneService.RemoteFileExistsAsync(RemoteConfigPath, provider))
+                var existsResult = await rcloneService.RemoteFileExistsAsync(RemoteConfigPath, provider);
+                
+                if (existsResult == null)
+                {
+                    // 连接失败/超时
+                    throw new Exception(ResourceProvider.GetString("LOCSaveManagerMsgCloudConnectionFailed"));
+                }
+                
+                if (existsResult == false)
                 {
                     logger.Info("No config.json found on cloud, skipping download");
                     return;
@@ -117,6 +171,9 @@ namespace SaveManager.Services
                     {
                         var backupPath = localConfigPath + $".backup_{DateTime.Now:yyyyMMdd_HHmmss}";
                         File.Copy(localConfigPath, backupPath, true);
+                        
+                        // 清理旧的备份文件，只保留最近10个
+                        CleanupOldConfigBackups(dataPath, 10);
                     }
 
                     // 替换本地配置
@@ -138,18 +195,22 @@ namespace SaveManager.Services
                 {
                     try { File.Delete(tempConfigPath); } catch { }
                 }
+                
+                throw; // 重新抛出异常以便调用者处理
             }
         }
 
         /// <summary>
         /// Playnite 启动时从云端同步 config.json（公开方法）
         /// </summary>
-        public async Task SyncConfigFromCloudAsync()
+        public async Task<ConfigSyncResult> SyncConfigFromCloudAsync()
         {
+            var result = new ConfigSyncResult { Success = true };
+
             if (GetCloudSyncEnabled?.Invoke() != true)
             {
                 logger.Info("Cloud sync is disabled, skipping config sync");
-                return;
+                return result;
             }
 
             var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
@@ -157,19 +218,40 @@ namespace SaveManager.Services
             if (!rcloneService.IsRcloneInstalled || !rcloneService.IsConfigured(provider))
             {
                 logger.Warn("Rclone not installed or not configured, skipping config sync");
-                return;
+                return result;
             }
 
             try
             {
+                // 在同步前获取本地已有的配置ID列表
+                var existingConfigIds = backupService.GetAllGameConfigs()
+                    .Select(c => c.ConfigId)
+                    .ToHashSet();
+
                 logger.Info("Syncing config.json from cloud...");
                 await DownloadConfigFromCloudAsync(provider);
                 logger.Info("Config.json synced from cloud successfully");
+
+                // 同步后检查新增的配置
+                var newConfigs = backupService.GetAllGameConfigs()
+                    .Where(c => !existingConfigIds.Contains(c.ConfigId))
+                    .ToList();
+
+                result.NewConfigIds = newConfigs.Select(c => c.ConfigId).ToList();
+
+                if (result.NewConfigIds.Count > 0)
+                {
+                    logger.Info($"Found {result.NewConfigIds.Count} new configs from cloud: {string.Join(", ", newConfigs.Select(c => c.GameName))}");
+                }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to sync config.json from cloud");
+                result.Success = false;
+                result.ErrorMessage = ex.Message;
             }
+
+            return result;
         }
 
         #endregion
@@ -233,6 +315,10 @@ namespace SaveManager.Services
             public string LocalCRC { get; set; }
             public string CloudCRC { get; set; }
             public string ErrorMessage { get; set; }
+            /// <summary>
+            /// 本地 Latest.zip 文件的实际修改时间
+            /// </summary>
+            public DateTime? LocalFileModifiedTime { get; set; }
         }
 
         /// <summary>
@@ -289,6 +375,9 @@ namespace SaveManager.Services
                     {
                         logger.Warn($"Game '{gameName}': Cannot read backup_info from local Latest.zip");
                     }
+                    
+                    // 获取本地 Latest.zip 文件的实际修改时间
+                    result.LocalFileModifiedTime = File.GetLastWriteTime(localLatestPath);
                 }
                 else if (localLatest != null)
                 {
@@ -526,7 +615,7 @@ namespace SaveManager.Services
 
                 if (success)
                 {
-                    // Latest 备份上传后，更新 config.json 中的云端信息并上传
+                    // Latest 备份上传后，额外更新 config.json 中的云端 Latest 信息
                     if (backup.Name == "Latest")
                     {
                         // 更新 config.json 中该游戏的云端 Latest 信息
@@ -541,9 +630,10 @@ namespace SaveManager.Services
                             config.CloudLatestSize = backup.FileSize;
                             backupService.SaveGameConfig(config);
                         }
-
-                        await UploadConfigToCloudAsync();
                     }
+
+                    // 所有备份上传后都要同步 config.json，确保备份记录同步到云端
+                    await UploadConfigToCloudAsync();
 
                     logger.Info($"Backup {backup.Name} uploaded to cloud successfully");
                     return true;
@@ -554,6 +644,56 @@ namespace SaveManager.Services
             catch (Exception ex)
             {
                 logger.Error(ex, $"Failed to upload backup {backup.Name} to cloud");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从云端删除备份文件
+        /// </summary>
+        public async Task<bool> DeleteBackupFromCloudAsync(SaveBackup backup, string gameName = null)
+        {
+            if (GetCloudSyncEnabled?.Invoke() != true) return false;
+
+            var provider = GetCloudProvider?.Invoke() ?? CloudProvider.GoogleDrive;
+
+            try
+            {
+                var remoteGamePath = rcloneService.GetRemoteGamePath(backup.ConfigId);
+                var remoteBackupPath = $"{remoteGamePath}/{Path.GetFileName(backup.BackupFilePath)}";
+
+                logger.Info($"Deleting backup {backup.Name} from cloud...");
+                var success = await rcloneService.DeleteRemoteFileAsync(remoteBackupPath, provider);
+
+                if (success)
+                {
+                    logger.Info($"Backup {backup.Name} deleted from cloud successfully");
+                    
+                    // 如果删除的是 Latest，额外清除 config.json 中的云端 Latest 信息
+                    if (backup.Name == "Latest")
+                    {
+                        var config = backupService.GetConfigByConfigId(backup.ConfigId);
+                        if (config != null)
+                        {
+                            config.CloudLatestCRC = null;
+                            config.CloudVersionHistory = new List<string>();
+                            config.CloudLatestTime = null;
+                            config.CloudLatestSize = 0;
+                            backupService.SaveGameConfig(config);
+                        }
+                    }
+                    
+                    // 所有备份删除后都要同步 config.json，确保备份记录同步到云端
+                    await UploadConfigToCloudAsync();
+                    
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to delete backup {backup.Name} from cloud");
                 return false;
             }
         }
@@ -665,7 +805,12 @@ namespace SaveManager.Services
                 progress?.Report("Checking cloud backups...");
                 var backupsExist = await rcloneService.RemoteFileExistsAsync("Backups", provider);
 
-                if (backupsExist)
+                if (backupsExist == null)
+                {
+                    throw new Exception(ResourceProvider.GetString("LOCSaveManagerMsgCloudConnectionFailed"));
+                }
+
+                if (backupsExist == true)
                 {
                     // 下载所有备份文件夹（排除 Latest.zip，启动游戏时会自动下载）
                     progress?.Report("Downloading backup history (Latest will sync on game start)...");
