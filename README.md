@@ -130,7 +130,7 @@ The language will automatically switch based on Playnite settings.
 
 ## 🙏 Acknowledgments
 
-- **Playnite**: [https://playnite.tv/](https://playnite.tv/) - An excellent open-source game launcher.
+- **Playnite**: [https://playnite.link/](https://playnite.link/) - An excellent open-source game launcher.
 - **Rclone**: [https://rclone.org/](https://rclone.org/) - An excellent open-source cloud sync tool.
 - **SaveTracker**: [https://github.com/KrachDev/SaveTracker](https://github.com/KrachDev/SaveTracker) - Provided valuable reference and inspiration for the implementation of cloud sync features.
 

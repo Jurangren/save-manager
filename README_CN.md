@@ -130,7 +130,7 @@
 
 ## 🙏 致谢
 
-- **Playnite**: [https://playnite.tv/](https://playnite.tv/) - 优秀的开源游戏启动器
+- **Playnite**: [https://playnite.link/](https://playnite.link/) - 优秀的开源游戏启动器
 - **Rclone**: [https://rclone.org/](https://rclone.org/) - 优秀的开源云同步工具
 - **SaveTracker**: [https://github.com/KrachDev/SaveTracker](https://github.com/KrachDev/SaveTracker) - 为云同步功能的实现提供了宝贵的参考与灵感
 
