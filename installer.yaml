@@ -5,7 +5,7 @@ Packages:
     ReleaseDate: 2026-02-06
     PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v2.0.0/SaveManager.pext
     Changelog:
-      - Warning: Incompatible with v1.0.x! Please backup your data beforehand and delete local plugin data after upgrading.
+      - Warning!!! Incompatible with v1.0.x! Please backup your data beforehand and delete local plugin data after upgrading.
       - Added Rclone-based cloud sync support (cross-device backup synchronization)
       - Added {EmulatorDir} variable support for emulator save paths
       - Added "Game Matching" to associate cloud saves with local games
