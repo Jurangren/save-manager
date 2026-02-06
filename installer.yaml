@@ -1,5 +1,14 @@
 AddonId: SaveManager
 Packages:
+  - Version: 2.0.2
+    RequiredApiVersion: 6.0.0
+    ReleaseDate: 2026-02-06
+    PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v2.0.2/SaveManager.pext
+    Changelog:
+      - Added option to toggle sidebar button in settings
+      - Added path validation warning for non-portable paths (red text + tooltip)
+      - Fixed game matching dialog not showing up after manual cloud pull
+
   - Version: 2.0.1
     RequiredApiVersion: 6.0.0
     ReleaseDate: 2026-02-06

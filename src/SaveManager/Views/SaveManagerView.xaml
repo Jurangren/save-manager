@@ -102,8 +102,23 @@
                                         
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Path}" FontSize="10" Opacity="0.7" 
-                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                                            <TextBlock Text="{Binding Path}" FontSize="10"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+                                                        <Setter Property="Opacity" Value="0.7"/>
+                                                        <Setter Property="ToolTip" Value="{Binding Path}"/>
+                                                        <Style.Triggers>
+                                                            <!-- 验证路径：如果不包含变量，标红并显示警告 -->
+                                                            <DataTrigger Binding="{Binding Path, Converter={x:Static local:PathValidationConverter.Instance}}" Value="False">
+                                                                <Setter Property="Foreground" Value="#FF6B6B"/>
+                                                                <Setter Property="Opacity" Value="1.0"/>
+                                                                <Setter Property="ToolTip" Value="{DynamicResource LOCSaveManagerPathWarning}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </StackPanel>
                                         
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

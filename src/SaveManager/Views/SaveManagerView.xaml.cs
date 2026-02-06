@@ -26,6 +26,34 @@ namespace SaveManager.Views
     }
 
     /// <summary>
+    /// 路径验证转换器（检测是否包含变量）
+    /// </summary>
+    public class PathValidationConverter : IValueConverter
+    {
+        public static readonly PathValidationConverter Instance = new PathValidationConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var path = value as string;
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            // 检查是否包含支持的变量，或者是环境变量
+            return path.Contains("{InstallDir}") ||
+                   path.Contains("{EmulatorDir}") ||
+                   path.Contains("{PlayniteDir}") ||
+                   path.Contains("{GameDir}") ||
+                   path.Contains("%") || // 环境变量，如 %USERPROFILE%
+                   path.StartsWith("{"); // 其他可能的 Playnite 变量
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// 字符串到可见性转换器
     /// </summary>
     public class StringToVisibilityConverter : IValueConverter

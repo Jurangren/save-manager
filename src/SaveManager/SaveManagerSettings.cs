@@ -78,9 +78,21 @@ namespace SaveManager
             set => SetValue(ref showAutoBackupNotification, value);
         }
 
+        // 侧边栏按钮设置
+        private bool showSidebarButton = true;
+
+        /// <summary>
+        /// 是否显示侧边栏按钮
+        /// </summary>
+        public bool ShowSidebarButton
+        {
+            get => showSidebarButton;
+            set => SetValue(ref showSidebarButton, value);
+        }
+
         // 实时同步设置（默认启用）
         private bool realtimeSyncEnabled = true;
-        
+
         // 标志：是否正在加载设置（加载时不弹警告）
         [DontSerialize]
         private bool isLoading = false;
@@ -184,6 +196,8 @@ namespace SaveManager
         private int editingMaxBackupCount;
         [DontSerialize]
         private bool editingRealtimeSyncEnabled;
+        [DontSerialize]
+        private bool editingShowSidebarButton;
 
         // 命令
         [DontSerialize]
@@ -650,6 +664,11 @@ namespace SaveManager
 
                             if (selectedOption == options[0])
                             {
+                                // 记录当前的配置ID列表
+                                var existingConfigIds = plugin.GetBackupService().GetAllGameConfigs()
+                                    .Select(c => c.ConfigId)
+                                    .ToHashSet();
+
                                 // 拉取所有数据
                                 bool success = false;
                                 plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
@@ -659,7 +678,7 @@ namespace SaveManager
 
                                     try
                                     {
-                                        success = System.Threading.Tasks.Task.Run(async () => 
+                                        success = System.Threading.Tasks.Task.Run(async () =>
                                             await cloudSyncManager.PullAllDataFromCloudAsync(null, System.Threading.CancellationToken.None)
                                         ).GetAwaiter().GetResult();
                                     }
@@ -668,14 +687,33 @@ namespace SaveManager
                                     ResourceProvider.GetString("LOCSaveManagerMsgPullingData"), false));
 
                                 plugin.PlayniteApi.Dialogs.ShowMessage(
-                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullDataSuccessDetail") 
+                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullDataSuccessDetail")
                                             : ResourceProvider.GetString("LOCSaveManagerMsgPullDataFailed"),
                                     ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
                                     System.Windows.MessageBoxButton.OK,
                                     success ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+
+                                if (success)
+                                {
+                                    // 检查新增配置并显示匹配对话框
+                                    var newConfigs = plugin.GetBackupService().GetAllGameConfigs()
+                                        .Where(c => !existingConfigIds.Contains(c.ConfigId))
+                                        .Select(c => c.ConfigId)
+                                        .ToList();
+
+                                    if (newConfigs.Count > 0)
+                                    {
+                                        plugin.ShowGameMatchingDialogForNewConfigs(newConfigs);
+                                    }
+                                }
                             }
                             else if (selectedOption == options[1])
                             {
+                                // 记录当前的配置ID列表
+                                var existingConfigIds = plugin.GetBackupService().GetAllGameConfigs()
+                                    .Select(c => c.ConfigId)
+                                    .ToHashSet();
+
                                 // 仅拉取配置文件
                                 bool success = false;
                                 plugin.PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
@@ -685,7 +723,7 @@ namespace SaveManager
 
                                     try
                                     {
-                                        success = System.Threading.Tasks.Task.Run(async () => 
+                                        success = System.Threading.Tasks.Task.Run(async () =>
                                             await cloudSyncManager.PullConfigOnlyAsync(provider, System.Threading.CancellationToken.None)
                                         ).GetAwaiter().GetResult();
                                     }
@@ -694,11 +732,25 @@ namespace SaveManager
                                     ResourceProvider.GetString("LOCSaveManagerMsgPullingConfigOnly"), false));
 
                                 plugin.PlayniteApi.Dialogs.ShowMessage(
-                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullConfigSuccess") 
+                                    success ? ResourceProvider.GetString("LOCSaveManagerMsgPullConfigSuccess")
                                             : ResourceProvider.GetString("LOCSaveManagerMsgPullDataFailed"),
                                     ResourceProvider.GetString("LOCSaveManagerTitleCloudSync"),
                                     System.Windows.MessageBoxButton.OK,
                                     success ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+
+                                if (success)
+                                {
+                                    // 检查新增配置并显示匹配对话框
+                                    var newConfigs = plugin.GetBackupService().GetAllGameConfigs()
+                                        .Where(c => !existingConfigIds.Contains(c.ConfigId))
+                                        .Select(c => c.ConfigId)
+                                        .ToList();
+
+                                    if (newConfigs.Count > 0)
+                                    {
+                                        plugin.ShowGameMatchingDialogForNewConfigs(newConfigs);
+                                    }
+                                }
                             }
                             else
                             {
@@ -1256,6 +1308,7 @@ namespace SaveManager
             editingConfirmBeforeBackup = ConfirmBeforeBackup;
             editingMaxBackupCount = MaxAutoBackupCount;
             editingRealtimeSyncEnabled = RealtimeSyncEnabled;
+            editingShowSidebarButton = ShowSidebarButton;
         }
 
         public void CancelEdit()
@@ -1266,6 +1319,7 @@ namespace SaveManager
             ConfirmBeforeBackup = editingConfirmBeforeBackup;
             MaxAutoBackupCount = editingMaxBackupCount;
             RealtimeSyncEnabled = editingRealtimeSyncEnabled;
+            ShowSidebarButton = editingShowSidebarButton;
         }
 
         public void EndEdit()

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Playnite.SDK;
@@ -12,7 +14,6 @@ using SaveManager.Models;
 using SaveManager.Services;
 using SaveManager.ViewModels;
 using SaveManager.Views;
-using System.Threading.Tasks;
 
 namespace SaveManager
 {
@@ -114,12 +115,13 @@ namespace SaveManager
         public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
         {
             var menuSection = ResourceProvider.GetString("LOCSaveManagerMenuSection");
-            
+            var iconPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "icon.png");
+
             yield return new GameMenuItem
             {
                 Description = ResourceProvider.GetString("LOCSaveManagerSubtitle"),
                 MenuSection = menuSection,
-                Icon = "💾",
+                // Icon = iconPath, // 移除图标
                 Action = (menuArgs) =>
                 {
                     if (menuArgs.Games.Count == 1)
@@ -138,7 +140,7 @@ namespace SaveManager
             {
                 Description = ResourceProvider.GetString("LOCSaveManagerMenuQuickBackup"),
                 MenuSection = menuSection,
-                Icon = "📦",
+                // Icon = iconPath, // 移除图标
                 Action = (menuArgs) =>
                 {
                     foreach (var game in menuArgs.Games)
@@ -233,6 +235,38 @@ namespace SaveManager
                     }
                 };
             }
+        }
+
+        /// <summary>
+        /// 侧边栏菜单项
+        /// </summary>
+        public override IEnumerable<SidebarItem> GetSidebarItems()
+        {
+            if (!settings.ShowSidebarButton)
+            {
+                yield break;
+            }
+
+            yield return new SidebarItem
+            {
+                Title = ResourceProvider.GetString("LOCSaveManagerSubtitle"),
+                Type = SiderbarItemType.Button,
+                Icon = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "icon.png"),
+                Activated = () =>
+                {
+                    // 获取当前选中的游戏
+                    var selectedGames = PlayniteApi.MainView.SelectedGames;
+                    if (selectedGames != null && selectedGames.Count() == 1)
+                    {
+                        OpenSaveManager(selectedGames.First());
+                    }
+                    else
+                    {
+                        // 如果未选中单一游戏，打开全局设置或备份文件夹
+                        OpenSettingsView();
+                    }
+                }
+            };
         }
 
         /// <summary>
@@ -961,7 +995,7 @@ namespace SaveManager
         /// <summary>
         /// 显示游戏匹配对话框（仅显示新增的配置）
         /// </summary>
-        private void ShowGameMatchingDialogForNewConfigs(List<Guid> newConfigIds)
+        internal void ShowGameMatchingDialogForNewConfigs(List<Guid> newConfigIds)
         {
             try
             {
