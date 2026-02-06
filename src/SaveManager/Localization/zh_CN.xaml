@@ -49,6 +49,7 @@
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">每个游戏的自动备份最大数量，超过此数量会自动删除最旧的备份，0 表示不限制</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(每个游戏，0=不限制，超出自动删除旧备份)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">提示：存档备份将保存为标准ZIP压缩包格式。</sys:String>
+    <sys:String x:Key="LOCSaveManagerSettingShowAutoBackupNotification">自动备份完成后发送 Windows 通知</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">自动备份 - 游戏运行 {0} 分钟后</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[存档管理] 已自动备份「{0}」- {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupCloudSuccess">[存档管理] 已自动备份并上传云端「{0}」- {1}</sys:String>

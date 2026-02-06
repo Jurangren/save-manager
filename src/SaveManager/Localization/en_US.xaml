@@ -49,6 +49,7 @@
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountTooltip">Max auto-backups per game. Old backups will be auto-deleted when exceeded. 0 for unlimited.</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCountHint">(per game, 0=unlimited, auto-deletes oldest)</sys:String>
     <sys:String x:Key="LOCSaveManagerZipWarning">Note: Game saves will be stored as standard ZIP archives.</sys:String>
+    <sys:String x:Key="LOCSaveManagerSettingShowAutoBackupNotification">Send Windows notification after auto-backup</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupNote">Auto backup after {0} minutes of gameplay</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupSuccess">[SaveManager] Auto backup created for "{0}" - {1}</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackupCloudSuccess">[SaveManager] Auto backup created and uploaded to cloud for "{0}" - {1}</sys:String>

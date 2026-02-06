@@ -12,6 +12,7 @@ using SaveManager.Models;
 using SaveManager.Services;
 using SaveManager.ViewModels;
 using SaveManager.Views;
+using System.Threading.Tasks;
 
 namespace SaveManager
 {
@@ -73,7 +74,27 @@ namespace SaveManager
                 HasSettings = true
             };
 
+            // 监听进程退出，确保后台任务完成
+            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+
             logger.Info("Save Manager plugin initialized");
+        }
+
+        private void OnProcessExit(object sender, EventArgs e)
+        {
+            if (backgroundTaskManager != null && backgroundTaskManager.HasActiveTasks)
+            {
+                logger.Info($"Process exiting, waiting for {backgroundTaskManager.ActiveTaskCount} background tasks...");
+                
+                // 此时 UI 线程可能已不可用，只能盲等
+                var timeout = DateTime.Now.AddSeconds(60);
+                while (backgroundTaskManager.HasActiveTasks && DateTime.Now < timeout)
+                {
+                    System.Threading.Thread.Sleep(500);
+                }
+                
+                logger.Info("Background wait finished.");
+            }
         }
 
         /// <summary>
@@ -368,12 +389,19 @@ namespace SaveManager
                     return;
                 }
 
-                // 如果启用了云同步，进入同步流程
+                // 如果启用了云同步
                 if (settings.CloudSyncEnabled && cloudSyncManager != null)
                 {
-                    SyncBackupToCloudWithBackgroundOption(backup, game.Name);
-                    
-                    // 如果之前没有 Latest 备份，现在有了（实时同步启用时会创建），需要前台上传 Latest
+                    // 启动后台同步
+                    RunBackgroundCloudSync(backup, game.Name, true);
+
+                    PlayniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess") + "\n(Cloud sync will continue in background)", backup.Name, backup.FormattedSize),
+                        "Save Manager",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+
+                    // 如果之前没有 Latest 备份，现在有了（实时同步启用时会创建），需要推送 Latest
                     if (!hadLatestBefore && settings.RealtimeSyncEnabled)
                     {
                         // 刷新配置，获取新创建的 Latest 备份
@@ -385,8 +413,8 @@ namespace SaveManager
                             
                             if (latestBackup != null)
                             {
-                                // 前台上传 Latest
-                                SyncLatestToCloudForeground(latestBackup, game.Name);
+                                // 后台上传 Latest
+                                RunBackgroundCloudSync(latestBackup, game.Name, true);
                             }
                         }
                     }
@@ -579,16 +607,13 @@ namespace SaveManager
                                 
                                 if (cloudEnabled && cloudSyncManager != null)
                                 {
-                                    var uploadTask = cloudSyncManager.UploadBackupToCloudAsync(newLatest, game.Name);
-                                    uploadTask.Wait();
-                                    if (!uploadTask.Result)
-                                    {
-                                        throw new Exception("Failed to upload Latest to cloud");
-                                    }
+                                    // 后台上传 Latest
+                                    RunBackgroundCloudSync(newLatest, game.Name, true);
                                 }
                             }
                             catch (Exception ex)
                             {
+                                logger.Error(ex, "Error Updating Latest");
                                 PlayniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error Updating Latest");
                             }
 
@@ -667,12 +692,8 @@ namespace SaveManager
                                 
                                 if (cloudEnabled && cloudSyncManager != null)
                                 {
-                                    var uploadTask = cloudSyncManager.UploadBackupToCloudAsync(newLatest, game.Name);
-                                    uploadTask.Wait();
-                                    if (!uploadTask.Result)
-                                    {
-                                        throw new Exception("Failed to upload Latest to cloud");
-                                    }
+                                    // 后台上传 Latest
+                                    RunBackgroundCloudSync(newLatest, game.Name, true);
                                 }
                             }
                             catch (Exception ex)
@@ -1279,7 +1300,38 @@ namespace SaveManager
                         logger.Info($"Auto backup created for game '{game.Name}': {backup.Name}");
 
                         // 清理超出数量限制的旧自动备份
-                        backupService.CleanupOldAutoBackups(game.Id, settings.MaxAutoBackupCount);
+                        // 清理超出数量限制的旧自动备份
+                        var deletedBackups = backupService.CleanupOldAutoBackups(game.Id, settings.MaxAutoBackupCount);
+
+                        // 如果启用了云同步，也从云端删除这些备份
+                        if (settings.CloudSyncEnabled && cloudSyncManager != null && deletedBackups.Count > 0)
+                        {
+                            foreach (var deletedBackup in deletedBackups)
+                            {
+                                var deletedBackupName = deletedBackup.Name;
+                                var gameNameForDelete = game.Name;
+                                // 使用后台任务管理器跟踪删除任务
+                                backgroundTaskManager.RunTask($"AutoBackupDelete_{gameNameForDelete}_{deletedBackupName}", async () =>
+                                {
+                                    try 
+                                    {
+                                        var success = await cloudSyncManager.DeleteBackupFromCloudAsync(deletedBackup, gameNameForDelete);
+                                        if (success)
+                                        {
+                                            logger.Info($"Old auto-backup deleted from cloud for game '{gameNameForDelete}': {deletedBackupName}");
+                                        }
+                                        else
+                                        {
+                                            logger.Warn($"Failed to delete old auto-backup from cloud for game '{gameNameForDelete}': {deletedBackupName}");
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.Error(ex, $"Error deleting old auto-backup from cloud for game '{gameNameForDelete}': {deletedBackupName}");
+                                    }
+                                });
+                            }
+                        }
 
                         // 如果启用了云同步，上传自动备份到云端
                         if (settings.CloudSyncEnabled && cloudSyncManager != null)
@@ -1306,7 +1358,10 @@ namespace SaveManager
                                             NotificationType.Info));
 
                                         // 显示 Windows Toast 通知
-                                        ToastNotificationService.ShowBackupSuccess(gameName, $"{backupName} (Cloud)", gameIcon);
+                                        if (settings.ShowAutoBackupNotification)
+                                        {
+                                            ToastNotificationService.ShowBackupSuccess(gameName, $"{backupName} (Cloud)", gameIcon);
+                                        }
                                     }
                                     else
                                     {
@@ -1319,7 +1374,10 @@ namespace SaveManager
                                             NotificationType.Info));
 
                                         // 显示 Windows Toast 通知（仅本地）
-                                        ToastNotificationService.ShowBackupSuccess(gameName, backupName, gameIcon);
+                                        if (settings.ShowAutoBackupNotification)
+                                        {
+                                            ToastNotificationService.ShowBackupSuccess(gameName, backupName, gameIcon);
+                                        }
                                     }
                                 }
                                 catch (Exception cloudEx)
@@ -1333,7 +1391,10 @@ namespace SaveManager
                                         NotificationType.Info));
 
                                     // 显示 Windows Toast 通知（仅本地）
-                                    ToastNotificationService.ShowBackupSuccess(gameName, backupName, gameIcon);
+                                    if (settings.ShowAutoBackupNotification)
+                                    {
+                                        ToastNotificationService.ShowBackupSuccess(gameName, backupName, gameIcon);
+                                    }
                                 }
                             });
                         }
@@ -1346,7 +1407,10 @@ namespace SaveManager
                                 NotificationType.Info));
 
                             // 显示 Windows Toast 通知
-                            ToastNotificationService.ShowBackupSuccess(game.Name, backup.Name, game.Icon);
+                            if (settings.ShowAutoBackupNotification)
+                            {
+                                ToastNotificationService.ShowBackupSuccess(game.Name, backup.Name, game.Icon);
+                            }
                         }
                     }
                     catch (Exception autoEx)
@@ -1428,6 +1492,10 @@ namespace SaveManager
                 logger.Error(ex, $"OnGameStopped failed for game '{game.Name}'");
             }
         }
+
+
+
+
 
         /// <summary>
         /// 导出全局配置
@@ -1633,6 +1701,46 @@ namespace SaveManager
                 
                 logger.Info("Re-initialized plugin after data deletion");
             }
+        }
+
+        /// <summary>
+        /// 后台运行云同步任务（上传或删除）
+        /// </summary>
+        private void RunBackgroundCloudSync(SaveBackup backup, string gameName, bool isUpload)
+        {
+            backgroundTaskManager.RunTask($"CloudSync_{backup.Name}", async () =>
+            {
+                try
+                {
+                    bool success = isUpload 
+                        ? await cloudSyncManager.UploadBackupToCloudAsync(backup, gameName)
+                        : await cloudSyncManager.DeleteBackupFromCloudAsync(backup);
+
+                    if (success)
+                    {
+                        var message = isUpload
+                            ? string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupUploadComplete"), backup.Name)
+                            : string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupDeleteComplete"), backup.Name);
+                        
+                        PlayniteApi.Notifications.Add(new NotificationMessage(
+                            $"SaveManager_CloudSync_{backup.Name}_{DateTime.Now.Ticks}",
+                            message,
+                            NotificationType.Info));
+                    }
+                    else
+                    {
+                         var message = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncFailed"), backup.Name);
+                         PlayniteApi.Notifications.Add(new NotificationMessage(
+                            $"SaveManager_CloudSync_Error_{backup.Name}",
+                            message,
+                            NotificationType.Error));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Background cloud sync failed");
+                }
+            });
         }
     }
 }

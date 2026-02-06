@@ -772,7 +772,19 @@ namespace SaveManager.ViewModels
                     // 如果启用了云同步，删除云端文件夹
                     if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
                     {
-                        DeleteCloudFolderWithProgress(item.ConfigGameName);
+                        // 使用 ConfigId (GUID) 删除云端文件夹
+                        DeleteCloudFolderWithProgress(item.Config.ConfigId.ToString());
+
+                        // 立即同步更新后的 config.json 到云端
+                        playniteApi.Dialogs.ActivateGlobalProgress((args) =>
+                        {
+                            args.IsIndeterminate = true;
+                            args.Text = ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig");
+
+                            var task = cloudSyncManager.UploadConfigToCloudAsync();
+                            task.Wait();
+
+                        }, new GlobalProgressOptions(ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig"), false) { IsIndeterminate = true });
                     }
 
                     // 如果该项占用了游戏，需要释放该游戏 ID

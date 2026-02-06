@@ -67,6 +67,17 @@ namespace SaveManager
             set => SetValue(ref maxBackupCount, value);
         }
 
+        private bool showAutoBackupNotification = true;
+
+        /// <summary>
+        /// 自动备份完成后发送 Windows 通知
+        /// </summary>
+        public bool ShowAutoBackupNotification
+        {
+            get => showAutoBackupNotification;
+            set => SetValue(ref showAutoBackupNotification, value);
+        }
+
         // 实时同步设置（默认启用）
         private bool realtimeSyncEnabled = true;
         
@@ -263,6 +274,7 @@ namespace SaveManager
                         AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
                         ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
                         MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
+                        ShowAutoBackupNotification = savedSettings.ShowAutoBackupNotification;
                         RealtimeSyncEnabled = savedSettings.RealtimeSyncEnabled;
                         SyncConfigOnGameStart = savedSettings.SyncConfigOnGameStart;
                         // 云同步设置

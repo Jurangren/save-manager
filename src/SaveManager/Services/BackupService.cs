@@ -578,6 +578,7 @@ namespace SaveManager.Services
 
             var game = playniteApi.Database.Games.Get(gameId);
             var installDir = game?.InstallDirectory;
+            var emulatorDir = GetEmulatorDirectory(gameId);
 
             // 验证解析后的路径存在
             foreach (var savePath in config.SavePaths)
@@ -588,8 +589,14 @@ namespace SaveManager.Services
                     throw new InvalidOperationException(
                         ResourceProvider.GetString("LOCSaveManagerMsgGameDirNotAvailable"));
                 }
+                
+                // 检查路径是否需要模拟器目录
+                if (savePath.Path.Contains(PathHelper.EmulatorDirVariable) && string.IsNullOrEmpty(emulatorDir))
+                {
+                    // 暂时没有专门的提示，复用或者不管
+                }
 
-                var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
+                var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir, emulatorDir);
                 
                 if (savePath.IsDirectory && !Directory.Exists(absolutePath))
                 {
@@ -623,7 +630,7 @@ namespace SaveManager.Services
             backup.BackupFilePath = GetRelativeBackupPath(fullBackupPath);
 
             // 创建ZIP文件（包含备份信息）
-            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, gameName, description ?? "");
+            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, emulatorDir, gameName, description ?? "");
 
             // 获取文件大小
             var fileInfo = new FileInfo(fullBackupPath);
@@ -756,6 +763,7 @@ namespace SaveManager.Services
 
             var game = playniteApi.Database.Games.Get(gameId);
             var installDir = game?.InstallDirectory;
+            var emulatorDir = GetEmulatorDirectory(gameId);
 
             // 验证路径存在
             foreach (var savePath in config.SavePaths)
@@ -767,7 +775,7 @@ namespace SaveManager.Services
                         ResourceProvider.GetString("LOCSaveManagerMsgGameDirNotAvailable"));
                 }
 
-                var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
+                var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir, emulatorDir);
                 
                 if (savePath.IsDirectory && !Directory.Exists(absolutePath))
                 {
@@ -823,7 +831,7 @@ namespace SaveManager.Services
             backup.BackupFilePath = GetRelativeBackupPath(fullBackupPath);
 
             // 创建ZIP文件
-            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, gameName, backup.Description);
+            CreateZipBackup(config.SavePaths, fullBackupPath, installDir, emulatorDir, gameName, backup.Description);
 
             // 获取文件大小
             var fileInfo = new FileInfo(fullBackupPath);
@@ -862,7 +870,7 @@ namespace SaveManager.Services
         /// <summary>
         /// 创建ZIP备份文件
         /// </summary>
-        private void CreateZipBackup(List<SavePath> savePaths, string zipPath, string installDir, string gameName, string description)
+        private void CreateZipBackup(List<SavePath> savePaths, string zipPath, string installDir, string emulatorDir, string gameName, string description)
         {
             // 如果文件已存在则删除
             if (File.Exists(zipPath))
@@ -889,7 +897,7 @@ namespace SaveManager.Services
 
                 foreach (var savePath in savePaths)
                 {
-                    var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir);
+                    var absolutePath = PathHelper.ResolvePath(savePath.Path, installDir, emulatorDir);
 
                     if (savePath.IsDirectory)
                     {
@@ -951,12 +959,14 @@ namespace SaveManager.Services
 
             // 尝试获取游戏安装目录 - 首先尝试通过 GameId，然后通过 ConfigId 查找任意匹配的游戏
             string installDir = null;
+            string emulatorDir = null;
             
             // 先尝试用备份记录的 GameId
             var game = playniteApi.Database.Games.Get(backup.GameId);
             if (game != null)
             {
                 installDir = game.InstallDirectory;
+                emulatorDir = GetEmulatorDirectory(game.Id);
             }
             else
             {
@@ -970,6 +980,7 @@ namespace SaveManager.Services
                         if (game != null)
                         {
                             installDir = game.InstallDirectory;
+                            emulatorDir = GetEmulatorDirectory(game.Id);
                             break;
                         }
                     }
@@ -982,7 +993,7 @@ namespace SaveManager.Services
             {
                 foreach (var excludePath in excludePaths)
                 {
-                    var resolvedPath = PathHelper.ResolvePath(excludePath.Path, installDir);
+                    var resolvedPath = PathHelper.ResolvePath(excludePath.Path, installDir, emulatorDir);
                     resolvedExcludePaths.Add(resolvedPath);
                 }
             }
@@ -1012,7 +1023,7 @@ namespace SaveManager.Services
                         throw new InvalidOperationException($"无法还原备份：配置路径包含 '{{GameDir}}'，但无法获取该游戏的安装目录。\n请确保游戏已安装并配置了安装路径。");
                     }
 
-                    var originalPath = PathHelper.ResolvePath(mapping.OriginalPath, installDir);
+                    var originalPath = PathHelper.ResolvePath(mapping.OriginalPath, installDir, emulatorDir);
                     
                     // 双重检查：确保解析后的路径不再包含变量
                     if (originalPath.Contains(PathHelper.GameDirVariable))
@@ -1535,21 +1546,24 @@ namespace SaveManager.Services
         }
 
         /// <summary>
-        /// 清理超出数量限制的旧自动备份
+        /// 清理旧的自动备份（超出最大保留数量的）
         /// </summary>
         /// <param name="gameId">游戏ID</param>
         /// <param name="maxCount">最大保留数量（0表示不限制）</param>
-        public void CleanupOldAutoBackups(Guid gameId, int maxCount)
+        /// <returns>被删除的备份列表</returns>
+        public List<SaveBackup> CleanupOldAutoBackups(Guid gameId, int maxCount)
         {
+            var deletedBackups = new List<SaveBackup>();
+
             if (maxCount <= 0)
             {
-                return; // 0 或负数表示不限制
+                return deletedBackups; // 0 或负数表示不限制
             }
 
             var config = GetGameConfig(gameId);
             if (config == null || !gameBackups.TryGetValue(config.ConfigId, out var backups))
             {
-                return;
+                return deletedBackups;
             }
 
             // 只筛选自动备份
@@ -1557,7 +1571,7 @@ namespace SaveManager.Services
             
             if (autoBackups.Count <= maxCount)
             {
-                return; // 自动备份数量未超出限制
+                return deletedBackups; // 自动备份数量未超出限制
             }
 
             try
@@ -1583,33 +1597,28 @@ namespace SaveManager.Services
                         
                         // 从列表中移除
                         backups.Remove(backup);
-                        logger.Info($"Deleted old auto-backup: {backup.Name}");
+                        deletedBackups.Add(backup);
                     }
                     catch (Exception ex)
                     {
-                        logger.Warn(ex, $"Failed to delete old backup: {backup.BackupFilePath}");
+                        logger.Error(ex, $"Failed to delete old auto-backup: {backup.Name}");
                     }
                 }
                 
-                // 保存更新后的数据
-                SaveData();
-                
-                // 检查备份目录是否为空，如果为空则删除
-                if (backups.Count == 0)
+                if (deletedBackups.Count > 0)
                 {
-                    var backupDir = Path.GetDirectoryName(GetFullBackupPath(backupsToDelete.FirstOrDefault()?.BackupFilePath));
-                    if (!string.IsNullOrEmpty(backupDir) && Directory.Exists(backupDir) && !Directory.EnumerateFileSystemEntries(backupDir).Any())
-                    {
-                        Directory.Delete(backupDir);
-                    }
-                    gameBackups.Remove(config.ConfigId);
+                    SaveData();
                 }
             }
             catch (Exception ex)
             {
-                logger.Error(ex, $"Failed to cleanup old backups for config ID {config.ConfigId}");
+                logger.Error(ex, "Error occurring during auto-backup cleanup");
             }
+
+            return deletedBackups;
         }
+                
+
 
         #endregion
 
@@ -1645,5 +1654,32 @@ namespace SaveManager.Services
         }
 
         #endregion
+        public string GetEmulatorDirectory(Guid gameId)
+        {
+            try
+            {
+                var game = playniteApi.Database.Games.Get(gameId);
+                if (game == null) return null;
+
+                if (game.GameActions != null)
+                {
+                    var action = game.GameActions.FirstOrDefault(a => a.Type == Playnite.SDK.Models.GameActionType.Emulator && a.EmulatorId != Guid.Empty);
+                    
+                    if (action != null)
+                    {
+                        var emulator = playniteApi.Database.Emulators.Get(action.EmulatorId);
+                        if (emulator != null)
+                        {
+                            return playniteApi.ExpandGameVariables(game, emulator.InstallDir);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to get emulator directory for game {gameId}");
+            }
+            return null;
+        }
     }
 }

@@ -19,6 +19,7 @@ namespace SaveManager.ViewModels
     /// </summary>
     public class SaveManagerViewModel : INotifyPropertyChanged
     {
+        private static readonly ILogger logger = LogManager.GetLogger();
         private readonly IPlayniteAPI playniteApi;
         private readonly BackupService backupService;
         private readonly Game game;
@@ -301,7 +302,8 @@ namespace SaveManager.ViewModels
             }
 
             // 2. 转换路径
-            var finalPath = PathHelper.ConvertToStoragePath(selectedPath, game.InstallDirectory, useGameRelative);
+            var emulatorDir = backupService.GetEmulatorDirectory(game.Id);
+            var finalPath = PathHelper.ConvertToStoragePath(selectedPath, game.InstallDirectory, emulatorDir, useGameRelative);
 
             // 3. 查重
             if (SavePaths.Any(p => p.Path.Equals(finalPath, StringComparison.OrdinalIgnoreCase)))
@@ -516,7 +518,8 @@ namespace SaveManager.ViewModels
             {
                 try
                 {
-                    var resolvedPath = PathHelper.ResolvePath(item.Path, game.InstallDirectory);
+                    var emulatorDir = backupService.GetEmulatorDirectory(game.Id);
+                    var resolvedPath = PathHelper.ResolvePath(item.Path, game.InstallDirectory, emulatorDir);
                     if (Directory.Exists(resolvedPath))
                     {
                         System.Diagnostics.Process.Start("explorer.exe", resolvedPath);
@@ -618,7 +621,8 @@ namespace SaveManager.ViewModels
             }
 
             // 转换路径
-            var finalPath = PathHelper.ConvertToStoragePath(selectedPath, game.InstallDirectory, useGameRelative);
+            var emulatorDir = backupService.GetEmulatorDirectory(game.Id);
+            var finalPath = PathHelper.ConvertToStoragePath(selectedPath, game.InstallDirectory, emulatorDir, useGameRelative);
 
             // 查重
             if (RestoreExcludePaths.Any(p => p.Path.Equals(finalPath, StringComparison.OrdinalIgnoreCase)))
@@ -749,12 +753,20 @@ namespace SaveManager.ViewModels
 
                 Backups.Insert(0, backup);
                 
-                // 如果启用了云同步，直接进入同步流程
+                // 如果启用了云同步，直接进入后台同步流程
                 if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
                 {
-                    SyncBackupWithBackgroundOption(backup);
+                    // 1. 发起后台同步 (由 BackgroundTaskManager 管理)
+                    SyncBackupToCloudBackground(backup, true);
                     
-                    // 如果之前没有 Latest 备份，现在有了（实时同步启用时会创建），需要推送 Latest
+                    // 2. 提示成功 (强调后台同步)
+                    playniteApi.Dialogs.ShowMessage(
+                        string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupSuccess") + "\n(Cloud sync will continue in background)", backup.Name, backup.FormattedSize), 
+                        "Save Manager", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Information);
+
+                    // 3. 如果之前没有 Latest 备份，现在有了（实时同步启用时会创建），需要推送 Latest
                     if (!hadLatestBefore && (getRealtimeSyncEnabled?.Invoke() ?? false))
                     {
                         // 刷新配置，获取新创建的 Latest 备份
@@ -766,8 +778,8 @@ namespace SaveManager.ViewModels
                             
                             if (latestBackup != null)
                             {
-                                // 前台上传 Latest
-                                SyncBackupToCloudForeground(latestBackup, true);
+                                // 后台上传 Latest
+                                SyncBackupToCloudBackground(latestBackup, true);
                             }
                         }
                     }
@@ -845,16 +857,13 @@ namespace SaveManager.ViewModels
                                 
                                 if (cloudEnabled && cloudSyncManager != null)
                                 {
-                                    var uploadTask = cloudSyncManager.UploadBackupToCloudAsync(newLatest, game.Name);
-                                    uploadTask.Wait();
-                                    if (!uploadTask.Result)
-                                    {
-                                        throw new Exception("Failed to upload Latest to cloud");
-                                    }
+                                    // 启动后台上传任务
+                                    SyncBackupToCloudBackground(newLatest, true);
                                 }
                             }
                             catch (Exception ex)
                             {
+                                logger.Error(ex, "Error Updating Latest");
                                 playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error Updating Latest");
                             }
 
@@ -1045,19 +1054,16 @@ namespace SaveManager.ViewModels
                                 // 这样可以确保版本历史的连续性
                                 var newLatest = backupService.CreateRealtimeSyncSnapshot(game.Id, game.Name, backup.VersionHistory);
                                 
-                                // 2. 如果开启云同步，上传到云端
+                                // 2. 如果开启云同步，上传到云端 (后台执行)
                                 if (cloudEnabled && cloudSyncManager != null)
                                 {
-                                    var uploadTask = cloudSyncManager.UploadBackupToCloudAsync(newLatest, game.Name);
-                                    uploadTask.Wait();
-                                    if (!uploadTask.Result)
-                                    {
-                                        throw new Exception("Failed to upload Latest to cloud");
-                                    }
+                                    // 启动后台上传任务，不阻塞界面
+                                    SyncBackupToCloudBackground(newLatest, true);
                                 }
                             }
                             catch (Exception ex)
                             {
+                                logger.Error(ex, "Error Updating Latest");
                                 playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error Updating Latest");
                             }
 
@@ -1272,6 +1278,30 @@ namespace SaveManager.ViewModels
                     }
                     
                     playniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCSaveManagerMsgNoteSuccess"), "Save Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    // 如果启用了云同步，立即上传最新的 config.json
+                    // 这样可以确保：
+                    // 1. 云端知道备注已更新
+                    // 2. 如果是从自动备份转为手动备份，云端也会更新状态，避免被自动清理逻辑误删
+                    if (cloudSyncManager != null && (getCloudSyncEnabled?.Invoke() ?? false))
+                    {
+                        playniteApi.Dialogs.ActivateGlobalProgress((args) =>
+                        {
+                            args.IsIndeterminate = true;
+                            args.Text = ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig");
+
+                            try
+                            {
+                                var task = cloudSyncManager.UploadConfigToCloudAsync();
+                                task.Wait();
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Error(ex, "Failed to upload config after editing note");
+                            }
+
+                        }, new GlobalProgressOptions(ResourceProvider.GetString("LOCSaveManagerMsgSyncingConfig"), false) { IsIndeterminate = true });
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1558,8 +1588,8 @@ namespace SaveManager.ViewModels
                                 message,
                                 Playnite.SDK.NotificationType.Info));
 
-                            // Windows 通知
-                            ShowWindowsNotification(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncComplete"), message);
+                            // Windows 通知 (已根据用户要求移除)
+                            // ShowWindowsNotification(ResourceProvider.GetString("LOCSaveManagerMsgCloudSyncComplete"), message);
                         }
                         else
                         {
@@ -1570,7 +1600,7 @@ namespace SaveManager.ViewModels
                                 message,
                                 Playnite.SDK.NotificationType.Error));
 
-                            ShowWindowsNotification("Save Manager", message);
+                            // ShowWindowsNotification("Save Manager", message);
                         }
                     });
                 }

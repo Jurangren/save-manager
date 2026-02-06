@@ -24,6 +24,10 @@
                      ToolTip="{DynamicResource LOCSaveManagerMaxAutoBackupCountTooltip}"/>
             <TextBlock Text="{DynamicResource LOCSaveManagerMaxAutoBackupCountHint}" VerticalAlignment="Center" Opacity="0.6"/>
         </StackPanel>
+
+        <CheckBox Content="{DynamicResource LOCSaveManagerSettingShowAutoBackupNotification}" 
+                  IsChecked="{Binding ShowAutoBackupNotification}" 
+                  Margin="0,10,0,0"/>
         
         <TextBlock Text="{DynamicResource LOCSaveManagerZipWarning}" 
                    Opacity="0.6" Margin="0,30,0,0" FontStyle="Italic"/>
