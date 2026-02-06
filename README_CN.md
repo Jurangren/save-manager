@@ -1,8 +1,16 @@
+<div align="center">
+
 # 🎮 Playnite 存档管理器 (Save Manager)
+
+[![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
+[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
 
 [English](README.md) | **[中文]**
 
-这是一个专为 Playnite 游戏库设计的**存档管理插件**。它让你能够轻松备份、还原和管理 PC 游戏的存档，再也不用担心存档丢失或损坏！
+</div>
+
+&emsp;&emsp;这是一个专为 Playnite 游戏库设计的**存档管理插件**。它让你能够轻松备份、还原和管理 PC 游戏的存档，再也不用担心存档丢失或损坏！
 
 ## ✨ 核心功能
 

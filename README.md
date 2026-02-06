@@ -1,8 +1,16 @@
+<div align="center">
+
 # 🎮 Playnite Save Manager
+
+[![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
+[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
 
 **[English]** | [中文](README_CN.md)
 
-A **save manager plugin** designed for the Playnite game library. Easily backup, restore, and manage your PC game saves, and never worry about losing or corrupting your saves again!
+</div>
+
+&emsp;&emsp;A **save manager plugin** designed for the Playnite game library. Easily backup, restore, and manage your PC game saves, and never worry about losing or corrupting your saves again!
 
 ## ✨ Core Features
 
