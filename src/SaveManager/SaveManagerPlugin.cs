@@ -279,20 +279,7 @@ namespace SaveManager
                 }
             };
 
-            // 关于
-            yield return new MainMenuItem
-            {
-                Description = ResourceProvider.GetString("LOCSaveManagerMenuAbout"),
-                MenuSection = menuSection,
-                Action = (menuArgs) =>
-                {
-                    PlayniteApi.Dialogs.ShowMessage(
-                        ResourceProvider.GetString("LOCSaveManagerAboutContent"),
-                        ResourceProvider.GetString("LOCSaveManagerMenuAbout"),
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-            };
+
         }
 
         /// <summary>
