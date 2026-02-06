@@ -5,7 +5,9 @@ Packages:
     ReleaseDate: 2026-02-06
     PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v2.0.1/SaveManager.pext
     Changelog:
-      - Fixed
+      - Fixed Rclone installation failure due to GitHub API rate limits (switched to fixed version download)
+      - Fixed Newtonsoft.Json dependency error during cloud sync
+      - Added fallback to manual installation if Rclone download fails
 
   - Version: 2.0.0
     RequiredApiVersion: 6.0.0

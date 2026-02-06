@@ -9,8 +9,8 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using Playnite.SDK;
+using Playnite.SDK.Data;
 using SaveManager.Models;
 
 namespace SaveManager.Services
@@ -23,6 +23,23 @@ namespace SaveManager.Services
         private readonly ILogger logger;
         private readonly IPlayniteAPI playniteApi;
         private readonly string dataPath;
+
+        // Rclone lsjson 输出模型
+        public class RcloneFileItem
+        {
+            public string Path { get; set; }
+            public string Name { get; set; }
+            public long Size { get; set; }
+            public string MimeType { get; set; }
+            public string ModTime { get; set; }
+            public bool IsDir { get; set; }
+        }
+
+        // R2 配置模型
+        public class R2Config
+        {
+            public string Bucket { get; set; }
+        }
 
         // 路径定义
         private string ToolsPath => Path.Combine(dataPath, "Tools");
@@ -582,8 +599,8 @@ namespace SaveManager.Services
             try
             {
                 var r2ConfigPath = Path.Combine(dataPath, "r2_config.json");
-                var config = new { Bucket = bucketName };
-                var json = Newtonsoft.Json.JsonConvert.SerializeObject(config);
+                var config = new R2Config { Bucket = bucketName };
+                var json = Serialization.ToJson(config);
                 File.WriteAllText(r2ConfigPath, json);
                 logger.Info($"R2 bucket config saved: {bucketName}");
             }
@@ -604,7 +621,7 @@ namespace SaveManager.Services
                 if (File.Exists(r2ConfigPath))
                 {
                     var json = File.ReadAllText(r2ConfigPath);
-                    dynamic config = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+                    var config = Serialization.FromJson<R2Config>(json);
                     return config?.Bucket ?? "playnite-saves";
                 }
             }
@@ -799,16 +816,18 @@ namespace SaveManager.Services
                 {
                     try
                     {
-                        var jsonArray = JArray.Parse(result.Output);
-                        foreach (var item in jsonArray)
+                        var items = Serialization.FromJson<List<RcloneFileItem>>(result.Output);
+                        if (items != null)
                         {
-                            var path = item["Path"]?.ToString();
-                            if (!string.IsNullOrEmpty(path))
+                            foreach (var item in items)
                             {
-                                files.Add(path);
+                                if (!string.IsNullOrEmpty(item.Path))
+                                {
+                                    files.Add(item.Path);
+                                }
                             }
+                            logger.Info($"Found {files.Count} files in {remotePath}");
                         }
-                        logger.Info($"Found {files.Count} files in {remotePath}");
                     }
                     catch (Exception parseEx)
                     {
@@ -1050,7 +1069,7 @@ namespace SaveManager.Services
                 if (!result.Success)
                 {
                     var errorLower = (result.Error ?? "").ToLower();
-                    if (errorLower.Contains("directory not found") || 
+                    if (errorLower.Contains("directory not found") ||
                         errorLower.Contains("object not found") ||
                         errorLower.Contains("file not found") ||
                         errorLower.Contains("not found") ||
@@ -1068,15 +1087,14 @@ namespace SaveManager.Services
                 }
 
                 // 解析 JSON 输出
-                var jsonArray = JArray.Parse(result.Output);
-                if (jsonArray.Count == 0)
+                var items = Serialization.FromJson<List<RcloneFileItem>>(result.Output);
+                if (items == null || items.Count == 0)
                 {
                     return (false, 0);
                 }
 
-                var fileInfo = jsonArray[0];
-                var size = fileInfo["Size"]?.Value<long>() ?? 0;
-                return (true, size);
+                var fileInfo = items[0];
+                return (true, fileInfo.Size);
             }
             catch (Exception ex)
             {
@@ -1105,10 +1123,10 @@ namespace SaveManager.Services
 
                 if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
                 {
-                    var jsonArray = JArray.Parse(result.Output);
-                    if (jsonArray.Count > 0)
+                    var items = Serialization.FromJson<List<RcloneFileItem>>(result.Output);
+                    if (items != null && items.Count > 0)
                     {
-                        var modTimeStr = jsonArray[0]["ModTime"]?.ToString();
+                        var modTimeStr = items[0].ModTime;
                         logger.Info($"ModTime string: {modTimeStr}");
                         if (!string.IsNullOrEmpty(modTimeStr) && DateTime.TryParse(modTimeStr, out var modTime))
                         {
