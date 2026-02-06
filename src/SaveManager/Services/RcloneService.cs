@@ -106,7 +106,7 @@ namespace SaveManager.Services
                     throw new Exception("Could not determine Rclone download URL");
                 }
 
-                logger.Info($"Download URL: {downloadUrl}");
+                // logger.Info($"Download URL: {downloadUrl}");
                 progress?.Report(("Downloading Rclone...", 5));
 
                 // 2. 下载 ZIP 文件（带进度）
@@ -183,6 +183,16 @@ namespace SaveManager.Services
             {
                 logger.Error(ex, "Failed to install Rclone");
                 progress?.Report(($"Installation failed: {ex.Message}", -1));
+
+                // 提示用户手动安装
+                playniteApi.Dialogs.ShowErrorMessage(
+                    $"Rclone 安装失败：{ex.Message}\n\n请尝试手动下载 Rclone 并解压到以下目录：\n{ToolsPath}\n确保 rclone.exe 位于该目录下。",
+                    "安装失败"
+                );
+
+                // 尝试打开 Tools 目录以便用户手动安装
+                try { Process.Start(ToolsPath); } catch { }
+
                 return false;
             }
         }
@@ -190,43 +200,11 @@ namespace SaveManager.Services
         /// <summary>
         /// 获取最新 Rclone 下载链接
         /// </summary>
-        private async Task<string> GetLatestRcloneZipUrlAsync()
+        private Task<string> GetLatestRcloneZipUrlAsync()
         {
-            // 备用下载链接（固定版本）
-            const string FallbackUrl = "https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-windows-amd64.zip";
-            
-            try
-            {
-                using (var client = new HttpClient())
-                {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SaveManager-Rclone-Updater/1.0");
-                    client.Timeout = TimeSpan.FromSeconds(15);
-
-                    var json = await client.GetStringAsync("https://api.github.com/repos/rclone/rclone/releases/latest");
-                    var root = JObject.Parse(json);
-
-                    var assets = root["assets"] as JArray;
-                    if (assets != null)
-                    {
-                        foreach (var asset in assets)
-                        {
-                            var name = asset["name"]?.ToString();
-                            if (name != null && name.Contains("windows-amd64.zip"))
-                            {
-                                return asset["browser_download_url"]?.ToString();
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Warn($"Failed to get latest rclone version from GitHub API, using fallback: {ex.Message}");
-            }
-
-            // 使用备用链接
-            logger.Info($"Using fallback rclone download URL: {FallbackUrl}");
-            return FallbackUrl;
+            // 直接使用固定版本的下载链接，避免 GitHub API 问题或 JSON 解析依赖
+            const string FixedUrl = "https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-windows-amd64.zip";
+            return Task.FromResult(FixedUrl);
         }
 
         #endregion
