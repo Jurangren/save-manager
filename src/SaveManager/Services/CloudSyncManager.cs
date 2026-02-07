@@ -488,7 +488,7 @@ namespace SaveManager.Services
         /// <summary>
         /// 从云端拉取并还原 Latest 存档
         /// </summary>
-        public async Task<bool> PullAndRestoreLatestAsync(Guid gameId, string gameName)
+        public async Task<bool> PullAndRestoreLatestAsync(Guid gameId, string gameName, IProgress<RcloneService.TransferProgress> progress = null)
         {
             if (GetCloudSyncEnabled?.Invoke() != true) return false;
 
@@ -497,12 +497,12 @@ namespace SaveManager.Services
             try
             {
                 var config = backupService.GetGameConfig(gameId);
-                
+
                 // 如果通过 gameId 找不到配置，尝试通过游戏名称查找
                 if (config == null && !string.IsNullOrEmpty(gameName))
                 {
                     config = backupService.GetConfigByGameName(gameName);
-                    
+
                     // 如果找到了配置，自动将当前设备的 gameId 添加到配置中
                     if (config != null)
                     {
@@ -511,7 +511,7 @@ namespace SaveManager.Services
                         backupService.SaveGameConfig(config);
                     }
                 }
-                
+
                 if (config == null) return false;
 
                 var remoteGamePath = rcloneService.GetRemoteGamePath(config.ConfigId, gameName);
@@ -523,7 +523,7 @@ namespace SaveManager.Services
 
                 // 下载 Latest.zip
                 logger.Info($"Pulling Latest.zip from cloud for {gameName}...");
-                var downloaded = await rcloneService.DownloadFileAsync(remoteLatestPath, localLatestPath, provider);
+                var downloaded = await rcloneService.DownloadFileAsync(remoteLatestPath, localLatestPath, provider, progress);
 
                 if (!downloaded)
                 {

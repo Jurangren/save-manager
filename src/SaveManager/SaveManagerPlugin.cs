@@ -768,7 +768,9 @@ namespace SaveManager
             PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
             {
                 progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup");
-                progressArgs.IsIndeterminate = true;
+                progressArgs.IsIndeterminate = false;
+                progressArgs.ProgressMaxValue = 100;
+                progressArgs.CurrentProgressValue = 0;
 
                 try
                 {
@@ -784,7 +786,21 @@ namespace SaveManager
                         System.IO.Directory.CreateDirectory(localDir);
                     }
 
-                    var task = rcloneService.DownloadFileAsync(remoteBackupPath, localBackupPath, provider);
+                    var progress = new Progress<Services.RcloneService.TransferProgress>(p =>
+                    {
+                        if (p.TotalBytes > 0)
+                        {
+                            progressArgs.CurrentProgressValue = (double)p.BytesTransferred * 100.0 / p.TotalBytes;
+                        }
+
+                        string sizeInfo = $"{FormatBytes(p.BytesTransferred)} / {FormatBytes(p.TotalBytes)}";
+                        string speedInfo = $"{FormatBytes((long)p.SpeedBytesPerSec)}/s";
+                        string etaInfo = p.EtaSeconds.HasValue ? TimeSpan.FromSeconds(p.EtaSeconds.Value).ToString(@"hh\:mm\:ss") : "--:--";
+
+                        progressArgs.Text = $"{ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup")} ({sizeInfo}, {speedInfo}, ETA: {etaInfo})";
+                    });
+
+                    var task = rcloneService.DownloadFileAsync(remoteBackupPath, localBackupPath, provider, progress);
                     task.Wait();
                     downloaded = task.Result;
                 }
@@ -795,7 +811,7 @@ namespace SaveManager
             }, new GlobalProgressOptions(
                 ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup"), false)
             {
-                IsIndeterminate = true
+                IsIndeterminate = false
             });
 
             if (!downloaded)
@@ -1088,6 +1104,20 @@ namespace SaveManager
             }
         }
 
+        private string FormatBytes(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            if (order == 0) return $"{len:0} {sizes[order]}";
+            return $"{len:0.00} {sizes[order]}";
+        }
+
         /// <summary>
         /// 游戏启动前触发 - 用于云端存档同步检查
         /// </summary>
@@ -1126,14 +1156,30 @@ namespace SaveManager
                     case Services.CloudSyncManager.SyncCheckResult.LocalMissing:
                         // 需要拉取云端存档
                         logger.Info($"Cloud sync: pulling latest save for game '{game.Name}'");
-                        
+
                         bool pullResult = false;
                         PlayniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
                         {
                             progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPullingLatest");
                             progressArgs.IsIndeterminate = true;
 
-                            var task = cloudSyncManager.PullAndRestoreLatestAsync(game.Id, game.Name);
+                            var progress = new Progress<Services.RcloneService.TransferProgress>(p =>
+                            {
+                                progressArgs.IsIndeterminate = false;
+                                if (p.TotalBytes > 0)
+                                {
+                                    progressArgs.ProgressMaxValue = 100;
+                                    progressArgs.CurrentProgressValue = (double)p.BytesTransferred * 100.0 / p.TotalBytes;
+                                }
+
+                                string sizeInfo = $"{FormatBytes(p.BytesTransferred)} / {FormatBytes(p.TotalBytes)}";
+                                string speedInfo = $"{FormatBytes((long)p.SpeedBytesPerSec)}/s";
+                                string etaInfo = p.EtaSeconds.HasValue ? TimeSpan.FromSeconds(p.EtaSeconds.Value).ToString(@"hh\:mm\:ss") : "--:--";
+
+                                progressArgs.Text = $"{ResourceProvider.GetString("LOCSaveManagerMsgPullingLatest")} ({sizeInfo}, {speedInfo}, ETA: {etaInfo})";
+                            });
+
+                            var task = cloudSyncManager.PullAndRestoreLatestAsync(game.Id, game.Name, progress);
                             task.Wait();
                             pullResult = task.Result;
                         }, new GlobalProgressOptions(
@@ -1224,7 +1270,23 @@ namespace SaveManager
                                 progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgPullingLatest");
                                 progressArgs.IsIndeterminate = true;
 
-                                var task = cloudSyncManager.PullAndRestoreLatestAsync(game.Id, game.Name);
+                                var progress = new Progress<Services.RcloneService.TransferProgress>(p =>
+                                {
+                                    progressArgs.IsIndeterminate = false;
+                                    if (p.TotalBytes > 0)
+                                    {
+                                        progressArgs.ProgressMaxValue = 100;
+                                        progressArgs.CurrentProgressValue = (double)p.BytesTransferred * 100.0 / p.TotalBytes;
+                                    }
+
+                                    string sizeInfo = $"{FormatBytes(p.BytesTransferred)} / {FormatBytes(p.TotalBytes)}";
+                                    string speedInfo = $"{FormatBytes((long)p.SpeedBytesPerSec)}/s";
+                                    string etaInfo = p.EtaSeconds.HasValue ? TimeSpan.FromSeconds(p.EtaSeconds.Value).ToString(@"hh\:mm\:ss") : "--:--";
+
+                                    progressArgs.Text = $"{ResourceProvider.GetString("LOCSaveManagerMsgPullingLatest")} ({sizeInfo}, {speedInfo}, ETA: {etaInfo})";
+                                });
+
+                                var task = cloudSyncManager.PullAndRestoreLatestAsync(game.Id, game.Name, progress);
                                 task.Wait();
                                 pullSuccess = task.Result;
                             }, new GlobalProgressOptions(

@@ -70,6 +70,42 @@ namespace SaveManager.Views
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// 布尔到可见性转换器
+    /// </summary>
+    public class BooleanToVisibilityConverter : IValueConverter
+    {
+        public static readonly BooleanToVisibilityConverter Instance = new BooleanToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is bool b && b ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// 反转布尔到可见性转换器
+    /// </summary>
+    public class InvertedBooleanToVisibilityConverter : IValueConverter
+    {
+        public static readonly InvertedBooleanToVisibilityConverter Instance = new InvertedBooleanToVisibilityConverter();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
 
 

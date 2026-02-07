@@ -29,6 +29,18 @@ namespace SaveManager.ViewModels
         public string GameName => game.Name;
         public string GameId => game.Id.ToString();
 
+        /// <summary>
+        /// 配置ID（如果游戏已匹配到配置）
+        /// </summary>
+        public string ConfigId => _currentConfig?.ConfigId.ToString() ?? string.Empty;
+
+        /// <summary>
+        /// 游戏是否已匹配到存档配置
+        /// </summary>
+        public bool IsGameMatched => _currentConfig != null;
+
+        private GameSaveConfig _currentConfig;
+
         private ObservableCollection<SavePathItem> _savePaths;
         public ObservableCollection<SavePathItem> SavePaths
         {
@@ -118,6 +130,7 @@ namespace SaveManager.ViewModels
         public ICommand ImportBackupCommand { get; }
         public ICommand ForceRestoreBackupCommand { get; }
         public ICommand ReuploadBackupCommand { get; }
+        public ICommand MatchGameCommand { get; }
 
         // 还原排除项命令
         public ICommand AddExcludeFolderCommand { get; }
@@ -163,6 +176,7 @@ namespace SaveManager.ViewModels
             ImportBackupCommand = new RelayCommand(ImportBackup);
             ForceRestoreBackupCommand = new RelayCommand(ForceRestoreBackup, () => IsSingleBackupSelected && SelectedBackups.FirstOrDefault()?.Name != "Latest");
             ReuploadBackupCommand = new RelayCommand(ReuploadBackup, () => IsSingleBackupSelected && getCloudSyncEnabled());
+            MatchGameCommand = new RelayCommand(OpenGameMatching, () => !IsGameMatched);
 
             // 还原排除项命令
             AddExcludeFolderCommand = new RelayCommand(AddExcludeFolder);
@@ -177,10 +191,13 @@ namespace SaveManager.ViewModels
         private void LoadData()
         {
             // 加载存档路径配置
-            var config = backupService.GetGameConfig(game.Id);
-            if (config != null)
+            _currentConfig = backupService.GetGameConfig(game.Id);
+            OnPropertyChanged(nameof(ConfigId));
+            OnPropertyChanged(nameof(IsGameMatched));
+
+            if (_currentConfig != null)
             {
-                foreach (var path in config.SavePaths)
+                foreach (var path in _currentConfig.SavePaths)
                 {
                     SavePaths.Add(new SavePathItem
                     {
@@ -190,9 +207,9 @@ namespace SaveManager.ViewModels
                 }
 
                 // 加载还原排除项（兼容旧版本配置，可能没有此字段）
-                if (config.RestoreExcludePaths != null)
+                if (_currentConfig.RestoreExcludePaths != null)
                 {
-                    foreach (var path in config.RestoreExcludePaths)
+                    foreach (var path in _currentConfig.RestoreExcludePaths)
                     {
                         RestoreExcludePaths.Add(new SavePathItem
                         {
@@ -831,7 +848,8 @@ namespace SaveManager.ViewModels
                     {
                         progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup");
                         progressArgs.IsIndeterminate = true;
-                        backupService.RestoreBackup(backup, null);
+
+                        backupService.RestoreBackup(backup, null, null);
                     }, new Playnite.SDK.GlobalProgressOptions(
                         ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup"), false)
                     {
@@ -1024,14 +1042,14 @@ namespace SaveManager.ViewModels
                     {
                         progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup");
                         progressArgs.IsIndeterminate = true;
-                        backupService.RestoreBackup(backup, excludePaths.Count > 0 ? excludePaths : null);
+
+                        backupService.RestoreBackup(backup, excludePaths.Count > 0 ? excludePaths : null, null);
                     }, new Playnite.SDK.GlobalProgressOptions(
                         ResourceProvider.GetString("LOCSaveManagerMsgRestoringBackup"), false)
                     {
                         IsIndeterminate = true
                     });
 
-                    // 还原后，询问是否更新 Latest (仅当实时同步启用时)
                     // 还原后，自动更新 Latest (仅当实时同步启用时)
                     if (getRealtimeSyncEnabled?.Invoke() == true)
                     {
@@ -1122,7 +1140,9 @@ namespace SaveManager.ViewModels
             playniteApi.Dialogs.ActivateGlobalProgress((progressArgs) =>
             {
                 progressArgs.Text = ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup");
-                progressArgs.IsIndeterminate = true;
+                progressArgs.IsIndeterminate = false;
+                progressArgs.ProgressMaxValue = 100;
+                progressArgs.CurrentProgressValue = 0;
 
                 try
                 {
@@ -1138,7 +1158,21 @@ namespace SaveManager.ViewModels
                         Directory.CreateDirectory(localDir);
                     }
 
-                    var task = rcloneService.DownloadFileAsync(remoteBackupPath, localBackupPath, provider);
+                    var progress = new Progress<Services.RcloneService.TransferProgress>(p =>
+                    {
+                        if (p.TotalBytes > 0)
+                        {
+                            progressArgs.CurrentProgressValue = (double)p.BytesTransferred * 100.0 / p.TotalBytes;
+                        }
+
+                        string sizeInfo = $"{FormatBytes(p.BytesTransferred)} / {FormatBytes(p.TotalBytes)}";
+                        string speedInfo = $"{FormatBytes((long)p.SpeedBytesPerSec)}/s";
+                        string etaInfo = p.EtaSeconds.HasValue ? TimeSpan.FromSeconds(p.EtaSeconds.Value).ToString(@"hh\:mm\:ss") : "--:--";
+
+                        progressArgs.Text = $"{ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup")} ({sizeInfo}, {speedInfo}, ETA: {etaInfo})";
+                    });
+
+                    var task = rcloneService.DownloadFileAsync(remoteBackupPath, localBackupPath, provider, progress);
                     task.Wait();
                     downloaded = task.Result;
                 }
@@ -1149,7 +1183,7 @@ namespace SaveManager.ViewModels
             }, new GlobalProgressOptions(
                 ResourceProvider.GetString("LOCSaveManagerMsgDownloadingBackup"), false)
             {
-                IsIndeterminate = true
+                IsIndeterminate = false
             });
 
             if (!downloaded)
@@ -1165,6 +1199,23 @@ namespace SaveManager.ViewModels
             }
 
             return downloaded;
+        }
+
+        /// <summary>
+        /// 格式化字节数为可读格式
+        /// </summary>
+        private string FormatBytes(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            if (order == 0) return $"{len:0} {sizes[order]}";
+            return $"{len:0.00} {sizes[order]}";
         }
 
         private void DeleteBackup()
@@ -1700,6 +1751,60 @@ namespace SaveManager.ViewModels
         }
 
         #endregion
+
+        /// <summary>
+        /// 打开游戏匹配窗口（单游戏模式）
+        /// </summary>
+        private void OpenGameMatching()
+        {
+            try
+            {
+                var window = playniteApi.Dialogs.CreateWindow(new WindowCreationOptions
+                {
+                    ShowMinimizeButton = false,
+                    ShowMaximizeButton = false
+                });
+
+                window.Width = 750;
+                window.Height = 550;
+                window.Title = ResourceProvider.GetString("LOCSaveManagerGameMatchingTitleSingle");
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                window.Owner = playniteApi.Dialogs.GetCurrentAppWindow();
+
+                var viewModel = new GameMatchingViewModel(playniteApi, backupService, game, cloudSyncManager, getCloudSyncEnabled);
+                var view = new Views.GameMatchingView
+                {
+                    DataContext = viewModel
+                };
+
+                // 处理关闭事件
+                viewModel.RequestClose += (result) =>
+                {
+                    window.DialogResult = result;
+                    window.Close();
+                };
+
+                window.Content = view;
+                var dialogResult = window.ShowDialog();
+
+                // 如果用户保存了匹配，重新加载数据
+                if (dialogResult == true)
+                {
+                    // 清空现有数据
+                    SavePaths.Clear();
+                    RestoreExcludePaths.Clear();
+                    Backups.Clear();
+                    
+                    // 重新加载
+                    LoadData();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to open game matching window");
+                playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
+            }
+        }
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {

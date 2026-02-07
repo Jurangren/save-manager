@@ -432,6 +432,34 @@ namespace SaveManager.ViewModels
             LoadDataForNewConfigs();
         }
 
+        /// <summary>
+        /// 单游戏匹配模式的构造函数（用于从存档管理界面打开，预设特定游戏）
+        /// </summary>
+        public GameMatchingViewModel(IPlayniteAPI playniteApi, BackupService backupService, Game gameToMatch, CloudSyncManager cloudSyncManager = null, Func<bool> getCloudSyncEnabled = null)
+        {
+            this.playniteApi = playniteApi;
+            this.backupService = backupService;
+            this.isFullMode = false; // 精简模式，只显示未匹配的
+            this.cloudSyncManager = cloudSyncManager;
+            this.getCloudSyncEnabled = getCloudSyncEnabled;
+            this.preSelectedGame = gameToMatch;
+
+            SaveCommand = new RelayCommand(Save);
+            CancelCommand = new RelayCommand(Cancel);
+            AutoMatchCommand = new RelayCommand(AutoMatchAll);
+            ClearMatchCommand = new RelayCommand<GameMatchingItem>(ClearMatch);
+            ToggleConfigSortCommand = new RelayCommand(ToggleConfigSort);
+            ToggleStatusSortCommand = new RelayCommand(ToggleStatusSort);
+            DeleteConfigCommand = new RelayCommand<GameMatchingItem>(DeleteConfig);
+
+            LoadDataForSingleGame();
+        }
+
+        /// <summary>
+        /// 预选的游戏（用于单游戏匹配模式）
+        /// </summary>
+        private readonly Game preSelectedGame = null;
+
         private void ToggleConfigSort()
         {
             // 重置状态排序
@@ -533,6 +561,61 @@ namespace SaveManager.ViewModels
             _statusSortDirection = SortDirection.Descending;
             OnPropertyChanged(nameof(StatusSortDirection));
             OnPropertyChanged(nameof(StatusSortIcon));
+
+            ApplyFilterAndSort();
+        }
+
+        /// <summary>
+        /// 加载单游戏匹配数据（仅显示未匹配到当前游戏的配置，优先显示名称相似的）
+        /// </summary>
+        private void LoadDataForSingleGame()
+        {
+            if (preSelectedGame == null) return;
+
+            // 获取 Playnite 所有游戏
+            allGames = playniteApi.Database.Games.ToList();
+
+            // 获取所有未匹配到当前游戏的配置
+            var configs = backupService.GetAllGameConfigs()
+                .Where(c => !c.ContainsGameId(preSelectedGame.Id))
+                .ToList();
+
+            foreach (var config in configs)
+            {
+                var item = new GameMatchingItem
+                {
+                    Config = config,
+                    BackupCount = backupService.GetBackupsByConfigId(config.ConfigId).Count
+                };
+
+                // 尝试自动匹配
+                TryAutoMatch(item);
+
+                // 如果配置名称与游戏名称相似，预设为匹配到该游戏
+                if (!item.IsMatched && NormalizeGameName(config.GameName) == NormalizeGameName(preSelectedGame.Name))
+                {
+                    item.MatchedGame = preSelectedGame;
+                }
+
+                // 记录已匹配的 GameId
+                if (item.IsMatched && item.MatchedGame != null)
+                {
+                    matchedGameIds.Add(item.MatchedGame.Id);
+                }
+
+                // 设置可选游戏列表
+                UpdateAvailableGames(item);
+
+                allMatchingItems.Add(item);
+            }
+
+            // 按名称相似度排序（完全匹配 > 包含 > 其他）
+            allMatchingItems = allMatchingItems
+                .OrderByDescending(i => 
+                    NormalizeGameName(i.ConfigGameName) == NormalizeGameName(preSelectedGame.Name) ? 2 :
+                    i.ConfigGameName.IndexOf(preSelectedGame.Name, StringComparison.OrdinalIgnoreCase) >= 0 ? 1 : 0)
+                .ThenBy(i => i.ConfigGameName)
+                .ToList();
 
             ApplyFilterAndSort();
         }
@@ -1102,6 +1185,15 @@ namespace SaveManager.ViewModels
         private void Cancel()
         {
             RequestClose?.Invoke(false);
+        }
+
+        /// <summary>
+        /// 标准化游戏名称用于比较
+        /// </summary>
+        private string NormalizeGameName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return string.Empty;
+            return name.ToLowerInvariant().Trim();
         }
     }
 }

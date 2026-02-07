@@ -6,6 +6,9 @@
     <sys:String x:Key="LOCSaveManager">存档管理器</sys:String>
     <sys:String x:Key="LOCSaveManagerSubtitle">存档管理</sys:String>
     <sys:String x:Key="LOCSaveManagerGameId">游戏ID: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigId">配置ID: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMatchGame">匹配存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerMatchGameTooltip">为此游戏匹配已有的云端存档配置</sys:String>
 
     <!-- Save Path Config -->
     <sys:String x:Key="LOCSaveManagerSaveConfigTitle">📂 存档路径配置</sys:String>
@@ -169,6 +172,7 @@
     <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">检测到云端有未匹配的备份</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">检测到云端存在以下游戏的备份文件夹，但并未与当前 Playnite 库中的游戏关联。你可以手动进行匹配。</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">云端文件夹 - 游戏匹配管理</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSingle">为此游戏匹配存档配置</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">下方显示了云端所有的备份文件夹。你可以手动关联云端文件夹到本地游戏，或者删除不再需要的云端配置。</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingStatus">状态: {0} 个未匹配 / {1} 个已匹配</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">云端游戏配置</sys:String>

@@ -6,6 +6,9 @@
     <sys:String x:Key="LOCSaveManager">Save Manager</sys:String>
     <sys:String x:Key="LOCSaveManagerSubtitle">Save Management</sys:String>
     <sys:String x:Key="LOCSaveManagerGameId">Game ID: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerConfigId">Config ID: {0}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMatchGame">Match Saves</sys:String>
+    <sys:String x:Key="LOCSaveManagerMatchGameTooltip">Match this game to existing cloud save configuration</sys:String>
 
     <!-- Save Path Config -->
     <sys:String x:Key="LOCSaveManagerSaveConfigTitle">Save Path Configuration</sys:String>
@@ -169,6 +172,7 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingTitleSimple">Unmatched cloud backups detected</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDescSimple">Cloud backup folders exist for games not associated with your library. You can manually match them.</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingTitleFull">Cloud Folders - Game Matching Management</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameMatchingTitleSingle">Match Save Config for This Game</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingDescFull">Below are all cloud backup folders. You can link them to local games or delete unneeded cloud configs.</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingStatus">Status: {0} Unmatched / {1} Matched</sys:String>
     <sys:String x:Key="LOCSaveManagerGameMatchingColConfig">Cloud Game Config</sys:String>

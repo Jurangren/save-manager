@@ -949,7 +949,8 @@ namespace SaveManager.Services
         /// </summary>
         /// <param name="backup">备份对象</param>
         /// <param name="excludePaths">还原排除项（可选），这些路径将保持当前状态不被覆盖</param>
-        public void RestoreBackup(SaveBackup backup, List<SavePath> excludePaths = null)
+        /// <param name="progress">进度报告（可选）</param>
+        public void RestoreBackup(SaveBackup backup, List<SavePath> excludePaths = null, IProgress<(string message, int percentage)> progress = null)
         {
             var fullPath = GetFullBackupPath(backup.BackupFilePath);
             if (!File.Exists(fullPath))
@@ -1015,8 +1016,15 @@ namespace SaveManager.Services
                 }
 
                 // 还原每个路径
+                int totalMappings = mappings.Count;
+                int currentMapping = 0;
+
                 foreach (var mapping in mappings)
                 {
+                    currentMapping++;
+                    progress?.Report(($"Restoring {currentMapping}/{totalMappings}: {mapping.OriginalPath}", (int)((double)currentMapping / totalMappings * 100)));
+
+
                     // 检查是否依赖游戏目录但无法获取
                     if (mapping.OriginalPath.Contains(PathHelper.GameDirVariable) && string.IsNullOrEmpty(installDir))
                     {

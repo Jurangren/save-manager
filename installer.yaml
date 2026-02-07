@@ -1,5 +1,13 @@
 AddonId: SaveManager
 Packages:
+  - Version: 2.0.3
+    RequiredApiVersion: 6.0.0
+    ReleaseDate: 2026-02-07
+    PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v2.0.3/SaveManager.pext
+    Changelog:
+      - Improved cloud download progress indication (shows size, speed, and ETA)
+      - Updated README layout
+
   - Version: 2.0.2
     RequiredApiVersion: 6.0.0
     ReleaseDate: 2026-02-06

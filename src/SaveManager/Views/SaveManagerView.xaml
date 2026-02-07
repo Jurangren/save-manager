@@ -8,6 +8,8 @@
              d:DesignHeight="600" d:DesignWidth="800"
              Background="{DynamicResource PopupBackgroundBrush}">
     <UserControl.Resources>
+        <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:InvertedBooleanToVisibilityConverter x:Key="InvertedBooleanToVisibilityConverter"/>
         <Style TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}" />
         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="12,6"/>
@@ -36,12 +38,35 @@
         
         <!-- 标题栏 -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock FontSize="20" FontWeight="Bold">
-                <Run Text="🎮 "/>
-                <Run Text="{Binding GameName, Mode=OneWay}"/>
-            </TextBlock>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" FontSize="20" FontWeight="Bold">
+                    <Run Text="🎮 "/>
+                    <Run Text="{Binding GameName, Mode=OneWay}"/>
+                </TextBlock>
+                <!-- 匹配按钮（仅未匹配时显示） -->
+                <Button Grid.Column="1" 
+                        Command="{Binding MatchGameCommand}"
+                        ToolTip="{DynamicResource LOCSaveManagerMatchGameTooltip}"
+                        Visibility="{Binding IsGameMatched, Converter={StaticResource InvertedBooleanToVisibilityConverter}}"
+                        Padding="8,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔗" Margin="0,0,6,0"/>
+                        <TextBlock Text="{DynamicResource LOCSaveManagerMatchGame}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
             <TextBlock Text="{Binding GameId, StringFormat='ID: {0}'}" 
                        Opacity="0.6" FontSize="11" Margin="0,4,0,0"/>
+            <!-- ConfigId（仅已匹配时显示） -->
+            <TextBlock Opacity="0.6" FontSize="11" Margin="0,2,0,0"
+                       Visibility="{Binding IsGameMatched, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Run Text="Config: "/>
+                <Run Text="{Binding ConfigId, Mode=OneWay}"/>
+            </TextBlock>
         </StackPanel>
         
         <!-- 主要内容区域 -->

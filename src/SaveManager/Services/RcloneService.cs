@@ -41,6 +41,32 @@ namespace SaveManager.Services
             public string Bucket { get; set; }
         }
 
+        /// <summary>
+        /// 传输进度信息
+        /// </summary>
+        public class TransferProgress
+        {
+            public long TotalBytes { get; set; }
+            public long BytesTransferred { get; set; }
+            public double SpeedBytesPerSec { get; set; }
+            public long? EtaSeconds { get; set; }
+        }
+
+        private class RcloneJsonLog
+        {
+            public string level { get; set; }
+            public string msg { get; set; }
+            public RcloneStats stats { get; set; }
+        }
+
+        private class RcloneStats
+        {
+            public long bytes { get; set; }
+            public double speed { get; set; }
+            public long totalBytes { get; set; }
+            public long? eta { get; set; }
+        }
+
         // 路径定义
         private string ToolsPath => Path.Combine(dataPath, "Tools");
         private string RcloneExePath => Path.Combine(ToolsPath, "rclone.exe");
@@ -900,6 +926,7 @@ namespace SaveManager.Services
             string remotePath,
             string localPath,
             CloudProvider provider,
+            IProgress<TransferProgress> progress = null,
             CancellationToken cancellationToken = default)
         {
             var configName = CloudProviderHelper.GetConfigName(provider);
@@ -920,9 +947,20 @@ namespace SaveManager.Services
                 {
                     logger.Debug($"Download attempt {attempt}/{MaxRetries}: {remotePath}");
 
-                    var result = await ExecuteRcloneCommandAsync(
-                        $"copyto \"{fullRemotePath}\" \"{localPath}\" --config \"{RcloneConfigPath}\"",
-                        ProcessTimeout
+                    var arguments = $"copyto \"{fullRemotePath}\" \"{localPath}\" --config \"{RcloneConfigPath}\"";
+
+                    // 如果提供了进度报告，开启 JSON 日志和状态输出
+                    // 使用较小的统计间隔和缓冲区以获得更平滑的进度更新
+                    if (progress != null)
+                    {
+                        arguments += " --use-json-log --stats 0.2s --verbose --buffer-size 64k --multi-thread-streams 0";
+                    }
+
+                    var result = await ExecuteRcloneCommandWithProgressAsync(
+                        arguments,
+                        ProcessTimeout,
+                        progress,
+                        cancellationToken
                     );
 
                     if (result.Success)
@@ -1263,6 +1301,144 @@ namespace SaveManager.Services
                     {
                         process.Kill();
                         result.Error = "Process timed out";
+                        result.ExitCode = -1;
+                        return result;
+                    }
+
+                    result.ExitCode = process.ExitCode;
+                    result.Output = outputBuilder.ToString();
+                    result.Error = errorBuilder.ToString();
+                    result.Success = result.ExitCode == 0;
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Error = ex.Message;
+                result.ExitCode = -1;
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 执行 Rclone 命令并报告进度
+        /// </summary>
+        private async Task<RcloneResult> ExecuteRcloneCommandWithProgressAsync(
+            string arguments,
+            TimeSpan timeout,
+            IProgress<TransferProgress> progress,
+            CancellationToken cancellationToken)
+        {
+            var result = new RcloneResult();
+
+            try
+            {
+                using (var process = new Process())
+                {
+                    process.StartInfo = new ProcessStartInfo
+                    {
+                        FileName = RcloneExePath,
+                        Arguments = arguments,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true,
+                        WindowStyle = ProcessWindowStyle.Hidden,
+                        StandardOutputEncoding = System.Text.Encoding.UTF8
+                    };
+
+                    var outputBuilder = new System.Text.StringBuilder();
+                    var errorBuilder = new System.Text.StringBuilder();
+
+                    process.OutputDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            outputBuilder.AppendLine(e.Data);
+
+                            // Parse progress from JSON log (stdout)
+                            if (progress != null && e.Data.Trim().StartsWith("{"))
+                            {
+                                try
+                                {
+                                    var log = Serialization.FromJson<RcloneJsonLog>(e.Data);
+                                    if (log?.stats != null)
+                                    {
+                                        progress.Report(new TransferProgress
+                                        {
+                                            TotalBytes = log.stats.totalBytes,
+                                            BytesTransferred = log.stats.bytes,
+                                            SpeedBytesPerSec = log.stats.speed,
+                                            EtaSeconds = log.stats.eta
+                                        });
+                                    }
+                                }
+                                catch
+                                {
+                                    // Ignore parsing errors
+                                }
+                            }
+                        }
+                    };
+
+                    process.ErrorDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            errorBuilder.AppendLine(e.Data);
+
+                            // Parse progress from JSON log (stderr) - Rclone often logs stats to stderr
+                            if (progress != null && e.Data.Trim().StartsWith("{"))
+                            {
+                                try
+                                {
+                                    var log = Serialization.FromJson<RcloneJsonLog>(e.Data);
+                                    if (log?.stats != null)
+                                    {
+                                        progress.Report(new TransferProgress
+                                        {
+                                            TotalBytes = log.stats.totalBytes,
+                                            BytesTransferred = log.stats.bytes,
+                                            SpeedBytesPerSec = log.stats.speed,
+                                            EtaSeconds = log.stats.eta
+                                        });
+                                    }
+                                }
+                                catch
+                                {
+                                    // Ignore parsing errors
+                                }
+                            }
+                        }
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    // 使用 Task.Run 等待进程退出，支持取消
+                    var waitForExitTask = Task.Run(() => process.WaitForExit((int)timeout.TotalMilliseconds));
+
+                    // 等待退出或取消
+                    var completedTask = await Task.WhenAny(waitForExitTask, Task.Delay(-1, cancellationToken));
+
+                    if (completedTask == waitForExitTask)
+                    {
+                        var completed = await waitForExitTask;
+                        if (!completed)
+                        {
+                            try { process.Kill(); } catch { }
+                            result.Error = "Process timed out";
+                            result.ExitCode = -1;
+                            return result;
+                        }
+                    }
+                    else
+                    {
+                        // 被取消
+                        try { process.Kill(); } catch { }
+                        result.Error = "Operation cancelled";
                         result.ExitCode = -1;
                         return result;
                     }
