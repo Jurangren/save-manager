@@ -2,9 +2,9 @@
 
 # 🎮 Playnite Save Manager
 
-[![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
+[![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
-[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
+[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github-release-stats.ghostbyte.dev/Jurangren/save-manager)
 
 **[English]** | [中文](README_CN.md)
 
