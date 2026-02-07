@@ -6,7 +6,8 @@ Packages:
     PackageUrl: https://github.com/Jurangren/save-manager/releases/download/v2.0.3/SaveManager.pext
     Changelog:
       - Improved cloud download progress indication (shows size, speed, and ETA)
-      - Updated README layout
+      - Added "Match Saves" button in Save Manager for unmatched games
+      - Added Config ID display in Save Manager header
 
   - Version: 2.0.2
     RequiredApiVersion: 6.0.0
