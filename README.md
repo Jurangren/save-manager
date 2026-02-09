@@ -5,6 +5,10 @@
 [![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
 [![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
+<br>
+
+[![Install](https://img.shields.io/badge/⬇_INSTALL_NOW-Click_to_Install_in_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+
 
 **[English]** | [中文](README_CN.md)
 
@@ -80,6 +84,11 @@ If you wish to **keep** certain local settings when restoring a save (e.g., reso
 ## 🛠️ Installation
 
 ### Install from Playnite Add-on Database (Recommended)
+
+[![Install](https://img.shields.io/badge/⬇_INSTALL_NOW-Click_to_Install_in_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+
+> 👆 Click the button above to install directly, or follow the steps below to install manually from the add-on store:
+
 1. Open Playnite → Press `F9` or go to **Add-ons** → **Browse**.
 2. Search for **"Save Manager"**.
 3. Click **Install**.

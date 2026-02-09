@@ -5,6 +5,10 @@
 [![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
 [![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
+<br>
+
+[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+
 
 [English](README.md) | **[中文]**
 
@@ -80,6 +84,11 @@
 ## 🛠️ 安装方法
 
 ### 从 Playnite 插件商店安装（推荐）
+
+[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+
+> 👆 点击上方按钮即可直接安装，或按照以下步骤在插件商店中手动安装：
+
 1. 打开 Playnite → 按 `F9` 或进入 **扩展** → **浏览**
 2. 搜索 **"Save Manager"**
 3. 点击 **安装**
