@@ -7,7 +7,7 @@
 [![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github-release-stats.ghostbyte.dev/Jurangren/save-manager)
 <br>
 
-[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](https://playnite.link/addons.html#SaveManager)
 
 
 [English](README.md) | **[中文]**
@@ -85,7 +85,7 @@
 
 ### 从 Playnite 插件商店安装（推荐）
 
-[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
+[![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](https://playnite.link/addons.html#SaveManager)
 
 > 👆 点击上方按钮即可直接安装，或按照以下步骤在插件商店中手动安装：
 
