@@ -4,7 +4,7 @@
 
 [![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://img.shields.io/github/release-date/Jurangren/save-manager)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
-[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github.com/Jurangren/save-manager/releases)
+[![GitHub download](https://img.shields.io/github/downloads/Jurangren/save-manager/total)](https://github-release-stats.ghostbyte.dev/Jurangren/save-manager)
 <br>
 
 [![安装](https://img.shields.io/badge/⬇_立即安装-点击安装到_Playnite-6c5ce7?style=for-the-badge&logoColor=white)](playnite://playnite/installaddon/SaveManager)
