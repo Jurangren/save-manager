@@ -1,6 +1,6 @@
 <div align="center">
-
-# 🎮 Playnite Save Manager
+   
+# <img src="src/SaveManager/icon.png" height="55" align="center">&nbsp;Playnite Save Manager
 
 [![GitHub release date](https://img.shields.io/github/release-date/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Jurangren/save-manager)](https://github.com/Jurangren/save-manager/releases)
