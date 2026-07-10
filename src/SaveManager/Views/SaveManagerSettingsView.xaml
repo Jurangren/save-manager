@@ -12,8 +12,25 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="20">
         <TextBlock Text="{DynamicResource LOCSaveManagerSettingsTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+
+        <TextBlock Text="{DynamicResource LOCSaveManagerBackupStorage}" FontSize="14" FontWeight="SemiBold"/>
+        <Grid Margin="0,8,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" Text="{Binding CustomBackupPath}" IsReadOnly="True"
+                     ToolTip="{DynamicResource LOCSaveManagerCustomBackupPathTooltip}"/>
+            <Button Grid.Column="1" Command="{Binding BrowseBackupPathCommand}" Margin="8,0,0,0" Padding="10,5">
+                <TextBlock Text="{DynamicResource LOCSaveManagerBrowse}"/>
+            </Button>
+            <Button Grid.Column="2" Command="{Binding ClearBackupPathCommand}" Margin="8,0,0,0" Padding="10,5">
+                <TextBlock Text="{DynamicResource LOCSaveManagerUseDefaultBackupPath}"/>
+            </Button>
+        </Grid>
         
-        <CheckBox Content="{DynamicResource LOCSaveManagerAutoBackup}" 
+        <CheckBox Content="{DynamicResource LOCSaveManagerAutoBackup}"
                   IsChecked="{Binding AutoBackupOnGameExit}" 
                   Margin="0,10,0,0"/>
         
@@ -91,7 +108,17 @@
                   ToolTip="{DynamicResource LOCSaveManagerEnableCloudSyncTooltip}"
                   Margin="0,5,0,5"/>
         
-        <CheckBox Content="{DynamicResource LOCSaveManagerRealtimeSync}" 
+        <CheckBox Content="{DynamicResource LOCSaveManagerSyncConfigOnApplicationStart}"
+                  IsChecked="{Binding SyncConfigOnApplicationStart}"
+                  ToolTip="{DynamicResource LOCSaveManagerSyncConfigOnApplicationStartTooltip}"
+                  Margin="0,0,0,5"/>
+
+        <CheckBox Content="{DynamicResource LOCSaveManagerRestoreOnGameReinstall}"
+                  IsChecked="{Binding RestoreOnGameReinstall}"
+                  ToolTip="{DynamicResource LOCSaveManagerRestoreOnGameReinstallTooltip}"
+                  Margin="0,0,0,5"/>
+
+        <CheckBox Content="{DynamicResource LOCSaveManagerRealtimeSync}"
                   IsChecked="{Binding RealtimeSyncEnabled}" 
                   ToolTip="{DynamicResource LOCSaveManagerRealtimeSyncTooltip}"
                   Margin="0,0,0,5"/>

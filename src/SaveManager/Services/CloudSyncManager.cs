@@ -224,9 +224,8 @@ namespace SaveManager.Services
             try
             {
                 // 在同步前获取本地已有的配置ID列表
-                var existingConfigIds = backupService.GetAllGameConfigs()
-                    .Select(c => c.ConfigId)
-                    .ToHashSet();
+                var existingConfigIds = new HashSet<Guid>(backupService.GetAllGameConfigs()
+                    .Select(c => c.ConfigId));
 
                 logger.Info("Syncing config.json from cloud...");
                 await DownloadConfigFromCloudAsync(provider);
@@ -894,7 +893,7 @@ namespace SaveManager.Services
                 {
                     // 下载所有备份文件夹（排除 Latest.zip，启动游戏时会自动下载）
                     progress?.Report("Downloading backup history (Latest will sync on game start)...");
-                    var localBackupsPath = Path.Combine(dataPath, "Backups");
+                    var localBackupsPath = backupService.BackupsPath;
                     var success = await rcloneService.DownloadDirectoryAsync(
                         "Backups", 
                         localBackupsPath, 

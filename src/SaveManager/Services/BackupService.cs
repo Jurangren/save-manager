@@ -17,9 +17,11 @@ namespace SaveManager.Services
         private readonly ILogger logger;
         private readonly IPlayniteAPI playniteApi;
         private readonly string dataPath;
-        private readonly string backupsPath;
+        private readonly string defaultBackupsPath;
         private readonly string configPath;
         private readonly Func<bool> getRealtimeSyncEnabled;
+        private readonly Func<string> getGlobalBackupRoot;
+        private readonly Func<Guid, string> getGameBackupRoot;
 
         // 使用 ConfigId 作为主键存储配置
         private Dictionary<Guid, GameSaveConfig> gameConfigs;
@@ -29,26 +31,29 @@ namespace SaveManager.Services
         private Dictionary<Guid, Guid> gameIdToConfigId;
 
         /// <summary>
-        /// 获取备份文件夹路径
+        /// 获取当前全局备份根目录。
         /// </summary>
-        public string BackupsPath => backupsPath;
+        public string BackupsPath => GetEffectiveBackupRoot(Guid.Empty);
 
         /// <summary>
         /// 数据版本号（用于迁移）
         /// </summary>
         private const int CurrentDataVersion = 2;
 
-        public BackupService(string dataPath, ILogger logger, IPlayniteAPI playniteApi, Func<bool> getRealtimeSyncEnabled = null)
+        public BackupService(string dataPath, ILogger logger, IPlayniteAPI playniteApi, Func<bool> getRealtimeSyncEnabled = null,
+            Func<string> getGlobalBackupRoot = null, Func<Guid, string> getGameBackupRoot = null)
         {
             this.logger = logger;
             this.playniteApi = playniteApi;
             this.dataPath = dataPath;
-            this.backupsPath = Path.Combine(dataPath, "Backups");
+            this.defaultBackupsPath = Path.Combine(dataPath, "Backups");
             this.configPath = Path.Combine(dataPath, "config.json");
             this.getRealtimeSyncEnabled = getRealtimeSyncEnabled;
+            this.getGlobalBackupRoot = getGlobalBackupRoot;
+            this.getGameBackupRoot = getGameBackupRoot;
 
-            // 确保目录存在
-            Directory.CreateDirectory(backupsPath);
+            // 确保默认目录存在
+            Directory.CreateDirectory(defaultBackupsPath);
 
             // 加载配置
             LoadData();
@@ -171,35 +176,46 @@ namespace SaveManager.Services
             }
         }
 
+        private string GetEffectiveBackupRoot(Guid configId)
+        {
+            var gameRoot = configId != Guid.Empty ? getGameBackupRoot?.Invoke(configId) : null;
+            if (!string.IsNullOrWhiteSpace(gameRoot))
+            {
+                return Path.GetFullPath(gameRoot);
+            }
+
+            var globalRoot = getGlobalBackupRoot?.Invoke();
+            if (!string.IsNullOrWhiteSpace(globalRoot))
+            {
+                return Path.GetFullPath(globalRoot);
+            }
+
+            return defaultBackupsPath;
+        }
+
         /// <summary>
-        /// 获取备份文件的完整路径
+        /// 获取备份文件的完整路径。新版本优先存绝对路径，旧相对路径仍相对插件数据目录解析。
         /// </summary>
         public string GetFullBackupPath(string path)
         {
             if (string.IsNullOrEmpty(path)) return null;
-            if (Path.IsPathRooted(path)) return path; // 已经是绝对路径
+            if (Path.IsPathRooted(path)) return path;
             return Path.Combine(dataPath, path);
         }
 
         /// <summary>
-        /// 获取相对于数据目录的路径
+        /// 默认目录内继续使用相对路径以兼容便携模式；自定义目录使用绝对路径。
         /// </summary>
         public string GetRelativeBackupPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return null;
-            
+
             string baseDir = dataPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            
-            if (fullPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+            if (fullPath.StartsWith(baseDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
-                string relative = fullPath.Substring(baseDir.Length);
-                if (relative.StartsWith(Path.DirectorySeparatorChar.ToString()) || relative.StartsWith(Path.AltDirectorySeparatorChar.ToString()))
-                {
-                    relative = relative.Substring(1);
-                }
-                return relative;
+                return fullPath.Substring(baseDir.Length + 1);
             }
-            return fullPath;
+            return Path.GetFullPath(fullPath);
         }
 
         /// <summary>
@@ -1056,7 +1072,7 @@ namespace SaveManager.Services
                         }
                         else
                         {
-                            Directory.CreateDirectory(mapping.OriginalPath);
+                            Directory.CreateDirectory(originalPath);
                         }
 
                         // 提取匹配的条目
@@ -1521,12 +1537,36 @@ namespace SaveManager.Services
         }
 
         /// <summary>
-        /// 获取游戏的备份目录（使用 ConfigId）
+        /// 获取游戏的备份目录（根目录\ConfigId）。文件命名规则不受目录设置影响。
         /// </summary>
         public string GetGameBackupDirectory(Guid configId, string gameName = null)
         {
-            // 只使用 ConfigId 作为文件夹名，与云端保持一致
-            return Path.Combine(backupsPath, configId.ToString());
+            return Path.Combine(GetEffectiveBackupRoot(configId), configId.ToString());
+        }
+
+        public string GetGameBackupDirectoryAtRoot(Guid configId, string rootPath)
+        {
+            var effectiveRoot = string.IsNullOrWhiteSpace(rootPath) ? defaultBackupsPath : Path.GetFullPath(rootPath);
+            return Path.Combine(effectiveRoot, configId.ToString());
+        }
+
+        public void UpdateBackupPathsAfterMigration(Guid configId, string oldDirectory, string newDirectory)
+        {
+            if (!gameBackups.TryGetValue(configId, out var backups)) return;
+
+            foreach (var backup in backups)
+            {
+                var oldFullPath = GetFullBackupPath(backup.BackupFilePath);
+                if (!string.IsNullOrEmpty(oldFullPath) &&
+                    oldFullPath.StartsWith(oldDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relative = oldFullPath.Substring(oldDirectory.TrimEnd(Path.DirectorySeparatorChar).Length)
+                        .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    backup.BackupFilePath = GetRelativeBackupPath(Path.Combine(newDirectory, relative));
+                }
+            }
+
+            SaveData();
         }
 
         /// <summary>
@@ -1540,7 +1580,7 @@ namespace SaveManager.Services
                 return GetGameBackupDirectory(config.ConfigId);
             }
             // 如果没有配置，返回一个基于 gameId 的临时路径（向后兼容）
-            return Path.Combine(backupsPath, gameId.ToString());
+            return Path.Combine(BackupsPath, gameId.ToString());
         }
 
         /// <summary>

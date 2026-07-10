@@ -44,8 +44,13 @@
 
     <!-- Settings View -->
     <sys:String x:Key="LOCSaveManagerSettingsTitle">Save Manager Settings</sys:String>
+    <sys:String x:Key="LOCSaveManagerBackupStorage">Local Backup Storage</sys:String>
     <sys:String x:Key="LOCSaveManagerCustomBackupPath">Custom Backup Directory:</sys:String>
+    <sys:String x:Key="LOCSaveManagerCustomBackupPathTooltip">Local root directory used by games without an individual override. This setting is not uploaded to cloud.</sys:String>
     <sys:String x:Key="LOCSaveManagerBrowse">Browse...</sys:String>
+    <sys:String x:Key="LOCSaveManagerUseGlobalBackupPath">Use Global</sys:String>
+    <sys:String x:Key="LOCSaveManagerUseDefaultBackupPath">Use Default</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameBackupPathTooltip">Optional local backup root for this game. Empty means the global root. This setting is not uploaded to cloud.</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackup">Auto backup when game stops</sys:String>
     <sys:String x:Key="LOCSaveManagerConfirmBackup">Show confirmation before backup</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCount">Max auto-backup count:</sys:String>
@@ -219,6 +224,10 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">Automatically create a backup snapshot of the latest save after game stops, and upload to cloud when cloud sync is enabled</sys:String>
     <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">Automatically track save versions and sync to cloud</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">Disabling version tracking will prevent cloud sync from working properly. Saves created afterwards may frequently cause conflicts when restoring, even if cloud sync is enabled later. If you need cloud sync now or in the future, it is strongly recommended NOT to disable this feature!</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnApplicationStart">Sync config when Playnite starts</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnApplicationStartTooltip">Disable this to avoid waiting for cloud configuration synchronization during Playnite startup.</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreOnGameReinstall">Detect reinstalled games and offer to restore saves</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreOnGameReinstallTooltip">Uses Playnite's installed/uninstalled state. When a configured game changes back to installed, compare local and cloud Latest history and ask before restoring.</sys:String>
     <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStart">Sync config on every game start</sys:String>
     <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStartTooltip">Before each game starts, pull the latest config file from cloud to ensure it stays in sync with other devices</sys:String>
 
@@ -238,6 +247,18 @@ Are you sure you want to continue?</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmPushAllData">Are you sure you want to push all local data to cloud?&#x0a;&#x0a;This will upload configurations and latest backups for all games. Existing cloud files will be overwritten.</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmPullAllData">Warning: Are you sure you want to pull all data from cloud?&#x0a;&#x0a;This will:&#x0a;1. Download configs for all games&#x0a;2. Overwrite local existing configs&#x0a;&#x0a;Recommended to "Push to Cloud" first to backup current state.</sys:String>
     
+    <sys:String x:Key="LOCSaveManagerTitleReinstallRestore">Reinstalled Game Save Restore</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReinstallRestoreLocal">"{0}" was installed again. A local backup is available.&#x0a;&#x0a;Date: {1}&#x0a;Size: {2}&#x0a;&#x0a;Restore it now?</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReinstallRestoreCloud">"{0}" was installed again. A cloud Latest backup is available.&#x0a;&#x0a;Date: {1}&#x0a;Size: {2}&#x0a;&#x0a;Download and restore it now?</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleBackupPathConflict">Backup Migration Conflict</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupPathConflict">A different file with the same relative path already exists while migrating backups for "{0}".&#x0a;&#x0a;Directory tree: {1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgMigrationSourceDetails">Source file: {0}&#x0a;Modified: {1}&#x0a;Tree: {2}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgMigrationTargetDetails">Target file: {0}&#x0a;Modified: {1}&#x0a;Tree: {2}</sys:String>
+    <sys:String x:Key="LOCSaveManagerApplyChoiceToAllConflicts">Apply this choice to all remaining same-name conflicts for this game</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnKeepSourceFile">Keep Source File</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnKeepTargetFile">Keep Target File</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupPathMigrationFailed">Failed to migrate backups for "{0}": {1}&#x0a;&#x0a;The original directory and setting were retained:&#x0a;{2}</sys:String>
+
     <!-- Errors & Status Messages -->
     <sys:String x:Key="LOCSaveManagerError">Error</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgRcloneNotInstalled">Rclone not detected. You need to download Rclone to use cloud sync.</sys:String>

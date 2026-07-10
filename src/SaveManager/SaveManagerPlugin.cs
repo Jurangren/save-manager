@@ -56,7 +56,13 @@ namespace SaveManager
             
             // 初始化服务
             var dataPath = GetPluginUserDataPath();
-            backupService = new BackupService(dataPath, logger, PlayniteApi, () => settings.RealtimeSyncEnabled);
+            backupService = new BackupService(
+                dataPath,
+                logger,
+                PlayniteApi,
+                () => settings.RealtimeSyncEnabled,
+                () => settings.CustomBackupPath,
+                configId => settings.GameBackupPaths != null && settings.GameBackupPaths.TryGetValue(configId, out var root) ? root : null);
 
             // 初始化 Rclone 服务
             rcloneService = new Services.RcloneService(dataPath, logger, PlayniteApi);
@@ -300,14 +306,14 @@ namespace SaveManager
                 Action = (menuArgs) => OpenGameMatchingWindow(fullMode: true)
             };
 
-            // 打开备份文件夹
+            // 打开当前全局备份根目录
             yield return new MainMenuItem
             {
                 Description = ResourceProvider.GetString("LOCSaveManagerOpenBackupFolder"),
                 MenuSection = menuSection,
                 Action = (menuArgs) =>
                 {
-                    var backupsPath = System.IO.Path.Combine(GetPluginUserDataPath(), "Backups");
+                    var backupsPath = backupService.BackupsPath;
                     System.IO.Directory.CreateDirectory(backupsPath);
                     System.Diagnostics.Process.Start("explorer.exe", backupsPath);
                 }
@@ -336,7 +342,9 @@ namespace SaveManager
                 window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
 
                 var viewModel = new SaveManagerViewModel(game, PlayniteApi, backupService, cloudSyncManager, rcloneService,
-                    () => settings.CloudSyncEnabled, () => settings.RealtimeSyncEnabled);
+                    () => settings.CloudSyncEnabled, () => settings.RealtimeSyncEnabled,
+                    configId => settings.GameBackupPaths != null && settings.GameBackupPaths.TryGetValue(configId, out var root) ? root : string.Empty,
+                    TryChangeGameBackupPath);
                 var view = new SaveManagerView
                 {
                     DataContext = viewModel
@@ -883,10 +891,12 @@ namespace SaveManager
         /// </summary>
         public override void OnApplicationStarted(OnApplicationStartedEventArgs args)
         {
-            if (settings.CloudSyncEnabled)
+            if (settings.CloudSyncEnabled && settings.SyncConfigOnApplicationStart)
             {
                 SyncConfigWithRetry();
             }
+
+            InitializeInstallStateBaseline();
         }
 
         /// <summary>
@@ -1346,6 +1356,32 @@ namespace SaveManager
             }
         }
 
+        public override void OnGameInstalled(OnGameInstalledEventArgs args)
+        {
+            var game = args?.Game;
+            if (game == null) return;
+
+            var hadBaseline = settings.GameInstallStates != null && settings.GameInstallStates.ContainsKey(game.Id);
+            var wasInstalled = hadBaseline && settings.GameInstallStates[game.Id];
+
+            settings.GameInstallStates[game.Id] = true;
+            settings.SaveLocalSettings();
+
+            // 只有明确观察过“未安装”状态后再次安装，才视为重新安装。
+            if (hadBaseline && !wasInstalled && settings.RestoreOnGameReinstall)
+            {
+                HandleReinstalledGame(game);
+            }
+        }
+
+        public override void OnGameUninstalled(OnGameUninstalledEventArgs args)
+        {
+            var game = args?.Game;
+            if (game == null) return;
+            settings.GameInstallStates[game.Id] = false;
+            settings.SaveLocalSettings();
+        }
+
         /// <summary>
         /// 游戏停止时触发 - 用于自动备份和实时同步
         /// </summary>
@@ -1579,6 +1615,339 @@ namespace SaveManager
 
 
 
+
+        public bool TryChangeGlobalBackupPath(string oldRoot, string newRoot)
+        {
+            var configs = backupService.GetAllGameConfigs()
+                .Where(c => settings.GameBackupPaths == null || !settings.GameBackupPaths.ContainsKey(c.ConfigId))
+                .ToList();
+
+            foreach (var config in configs)
+            {
+                if (!TryMigrateGameBackupDirectory(config, oldRoot, newRoot))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public bool TryChangeGameBackupPath(Guid configId, string newRoot)
+        {
+            var config = backupService.GetConfigByConfigId(configId);
+            if (config == null) return false;
+
+            var oldRoot = settings.GameBackupPaths != null && settings.GameBackupPaths.TryGetValue(configId, out var currentRoot)
+                ? currentRoot
+                : settings.CustomBackupPath;
+            // 清除单游戏覆盖时应迁移到当前全局根目录，而不是直接回到插件默认目录。
+            var destinationRoot = string.IsNullOrWhiteSpace(newRoot) ? settings.CustomBackupPath : newRoot;
+
+            if (!TryMigrateGameBackupDirectory(config, oldRoot, destinationRoot)) return false;
+
+            if (settings.GameBackupPaths == null) settings.GameBackupPaths = new Dictionary<Guid, string>();
+            if (string.IsNullOrWhiteSpace(newRoot)) settings.GameBackupPaths.Remove(configId);
+            else settings.GameBackupPaths[configId] = newRoot;
+            settings.SaveLocalSettings();
+            return true;
+        }
+
+        private bool TryMigrateGameBackupDirectory(GameSaveConfig config, string oldRoot, string newRoot)
+        {
+            var sourceDirectory = backupService.GetGameBackupDirectoryAtRoot(config.ConfigId, oldRoot);
+            var targetDirectory = backupService.GetGameBackupDirectoryAtRoot(config.ConfigId, newRoot);
+            if (string.Equals(sourceDirectory, targetDirectory, StringComparison.OrdinalIgnoreCase)) return true;
+            if (!Directory.Exists(sourceDirectory)) return true;
+
+            var sourceFiles = Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories);
+            var choices = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            bool? applySourceChoiceToAll = null;
+
+            try
+            {
+                foreach (var sourceFile in sourceFiles)
+                {
+                    var relative = sourceFile.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var targetFile = Path.Combine(targetDirectory, relative);
+                    if (!File.Exists(targetFile))
+                    {
+                        choices[relative] = true;
+                        continue;
+                    }
+
+                    if (FilesAreIdentical(sourceFile, targetFile))
+                    {
+                        choices[relative] = false;
+                        continue;
+                    }
+
+                    if (applySourceChoiceToAll.HasValue)
+                    {
+                        choices[relative] = applySourceChoiceToAll.Value;
+                        continue;
+                    }
+
+                    bool applyAll;
+                    var useSource = ShowMigrationConflictDialog(config.GameName, relative, sourceFile, targetFile, out applyAll);
+                    choices[relative] = useSource;
+                    if (applyAll) applySourceChoiceToAll = useSource;
+                }
+
+                Directory.CreateDirectory(targetDirectory);
+                foreach (var sourceFile in sourceFiles)
+                {
+                    var relative = sourceFile.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var targetFile = Path.Combine(targetDirectory, relative);
+                    if (!choices[relative]) continue;
+                    Directory.CreateDirectory(Path.GetDirectoryName(targetFile));
+                    File.Copy(sourceFile, targetFile, true);
+                }
+
+                // 先验证每个相对路径在目标目录均有文件，再更新记录和删除源目录。
+                foreach (var sourceFile in sourceFiles)
+                {
+                    var relative = sourceFile.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var targetFile = Path.Combine(targetDirectory, relative);
+                    if (!File.Exists(targetFile))
+                    {
+                        throw new IOException($"Migrated file verification failed: {targetFile}");
+                    }
+                }
+
+                backupService.UpdateBackupPathsAfterMigration(config.ConfigId, sourceDirectory, targetDirectory);
+                Directory.Delete(sourceDirectory, true);
+                logger.Info($"Migrated backup directory for '{config.GameName}' from '{sourceDirectory}' to '{targetDirectory}'");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"Failed to migrate backup directory for '{config.GameName}'");
+                PlayniteApi.Dialogs.ShowErrorMessage(
+                    string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupPathMigrationFailed"), config.GameName, ex.Message, sourceDirectory),
+                    ResourceProvider.GetString("LOCSaveManagerError"));
+                return false;
+            }
+        }
+
+        private bool FilesAreIdentical(string first, string second)
+        {
+            var firstInfo = new FileInfo(first);
+            var secondInfo = new FileInfo(second);
+            if (firstInfo.Length != secondInfo.Length) return false;
+            using (var firstStream = File.OpenRead(first))
+            using (var secondStream = File.OpenRead(second))
+            {
+                int a;
+                do
+                {
+                    a = firstStream.ReadByte();
+                    if (a != secondStream.ReadByte()) return false;
+                } while (a != -1);
+            }
+            return true;
+        }
+
+        private bool ShowMigrationConflictDialog(string gameName, string relativePath, string sourceFile, string targetFile, out bool applyAll)
+        {
+            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
+            {
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = false,
+                ShowCloseButton = false
+            });
+            window.Title = ResourceProvider.GetString("LOCSaveManagerTitleBackupPathConflict");
+            window.Width = 680;
+            window.Height = 390;
+            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
+
+            var sourceInfo = new FileInfo(sourceFile);
+            var targetInfo = new FileInfo(targetFile);
+            var useSource = false;
+            var applyCheckBox = new CheckBox
+            {
+                Content = ResourceProvider.GetString("LOCSaveManagerApplyChoiceToAllConflicts"),
+                Margin = new Thickness(0, 14, 0, 14)
+            };
+            var sourceButton = new Button { Content = ResourceProvider.GetString("LOCSaveManagerBtnKeepSourceFile"), MinWidth = 150, Margin = new Thickness(4) };
+            var targetButton = new Button { Content = ResourceProvider.GetString("LOCSaveManagerBtnKeepTargetFile"), MinWidth = 150, Margin = new Thickness(4) };
+            sourceButton.Click += (s, e) => { useSource = true; window.DialogResult = true; window.Close(); };
+            targetButton.Click += (s, e) => { useSource = false; window.DialogResult = true; window.Close(); };
+
+            window.Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Children =
+                {
+                    new TextBlock { Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgBackupPathConflict"), gameName, relativePath), TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.Bold },
+                    new TextBlock { Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgMigrationSourceDetails"), sourceInfo.Name, sourceInfo.LastWriteTime, sourceDirectoryLabel(sourceFile, relativePath)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 14, 0, 0) },
+                    new TextBlock { Text = string.Format(ResourceProvider.GetString("LOCSaveManagerMsgMigrationTargetDetails"), targetInfo.Name, targetInfo.LastWriteTime, sourceDirectoryLabel(targetFile, relativePath)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0) },
+                    applyCheckBox,
+                    new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { sourceButton, targetButton } }
+                }
+            };
+            window.ShowDialog();
+            applyAll = applyCheckBox.IsChecked == true;
+            return useSource;
+        }
+
+        private string sourceDirectoryLabel(string fullPath, string relativePath)
+        {
+            var root = fullPath.Substring(0, Math.Max(0, fullPath.Length - relativePath.Length)).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return $"{root}  →  {relativePath}";
+        }
+
+        private void InitializeInstallStateBaseline()
+        {
+            if (settings.GameInstallStates == null)
+            {
+                settings.GameInstallStates = new Dictionary<Guid, bool>();
+            }
+
+            bool changed = false;
+            foreach (var game in PlayniteApi.Database.Games)
+            {
+                if (!settings.GameInstallStates.ContainsKey(game.Id))
+                {
+                    settings.GameInstallStates[game.Id] = game.IsInstalled;
+                    changed = true;
+                }
+            }
+
+            if (changed) settings.SaveLocalSettings();
+        }
+
+        private void HandleReinstalledGame(Game game)
+        {
+            var config = backupService.GetGameConfig(game.Id) ?? backupService.GetConfigByGameName(game.Name);
+            if (config == null) return;
+
+            if (!config.GameIds.Contains(game.Id))
+            {
+                config.AddGameId(game.Id);
+                backupService.SaveGameConfig(config);
+            }
+
+            var localLatest = backupService.GetBackupsByConfigId(config.ConfigId)
+                .FirstOrDefault(b => b.Name == "Latest" && File.Exists(backupService.GetFullBackupPath(b.BackupFilePath)));
+            var localFallback = localLatest ?? backupService.GetBackupsByConfigId(config.ConfigId)
+                .Where(b => b.Name != "Latest" && File.Exists(backupService.GetFullBackupPath(b.BackupFilePath)))
+                .OrderByDescending(b => b.CreatedAt)
+                .FirstOrDefault();
+
+            if (!settings.CloudSyncEnabled)
+            {
+                PromptRestoreLocalReinstallBackup(game, localFallback);
+                return;
+            }
+
+            backgroundTaskManager.RunTask($"ReinstallRestoreCheck_{game.Name}", async () =>
+            {
+                var syncInfo = await cloudSyncManager.CheckSyncStatusBeforeGameStartAsync(game.Id, game.Name);
+                PlayniteApi.MainView.UIDispatcher.Invoke(() => PromptReinstallRestore(game, localFallback, syncInfo));
+            });
+        }
+
+        private void PromptRestoreLocalReinstallBackup(Game game, SaveBackup backup)
+        {
+            if (backup == null) return;
+            var result = PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgReinstallRestoreLocal"), game.Name, backup.FormattedDate, backup.FormattedSize),
+                ResourceProvider.GetString("LOCSaveManagerTitleReinstallRestore"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                backupService.RestoreBackup(backup, backupService.GetGameConfig(game.Id)?.RestoreExcludePaths);
+            }
+        }
+
+        private void PromptReinstallRestore(Game game, SaveBackup localBackup, Services.CloudSyncManager.SyncCheckInfo syncInfo)
+        {
+            if (syncInfo == null || syncInfo.Result == Services.CloudSyncManager.SyncCheckResult.Error)
+            {
+                PromptRestoreLocalReinstallBackup(game, localBackup);
+                return;
+            }
+
+            switch (syncInfo.Result)
+            {
+                case Services.CloudSyncManager.SyncCheckResult.LocalMissing:
+                case Services.CloudSyncManager.SyncCheckResult.LocalBehind:
+                    if (ConfirmCloudRestoreForReinstall(game, syncInfo.CloudBackup))
+                    {
+                        RestoreCloudLatestForReinstall(game);
+                    }
+                    break;
+                case Services.CloudSyncManager.SyncCheckResult.CloudMissing:
+                case Services.CloudSyncManager.SyncCheckResult.BothMissing:
+                case Services.CloudSyncManager.SyncCheckResult.CloudBehind:
+                    PromptRestoreLocalReinstallBackup(game, localBackup);
+                    break;
+                case Services.CloudSyncManager.SyncCheckResult.InSync:
+                    var newestIsCloud = syncInfo.CloudBackup != null && localBackup != null && syncInfo.CloudBackup.CreatedAt > localBackup.CreatedAt;
+                    if (newestIsCloud)
+                    {
+                        if (ConfirmCloudRestoreForReinstall(game, syncInfo.CloudBackup)) RestoreCloudLatestForReinstall(game);
+                    }
+                    else
+                    {
+                        PromptRestoreLocalReinstallBackup(game, localBackup);
+                    }
+                    break;
+                case Services.CloudSyncManager.SyncCheckResult.Conflict:
+                    ShowReinstallConflictDialog(game, localBackup, syncInfo);
+                    break;
+            }
+        }
+
+        private bool ConfirmCloudRestoreForReinstall(Game game, SaveBackup cloudBackup)
+        {
+            var date = cloudBackup?.FormattedDate ?? "Unknown";
+            var size = cloudBackup?.FormattedSize ?? "Unknown";
+            return PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgReinstallRestoreCloud"), game.Name, date, size),
+                ResourceProvider.GetString("LOCSaveManagerTitleReinstallRestore"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) == MessageBoxResult.Yes;
+        }
+
+        private void RestoreCloudLatestForReinstall(Game game)
+        {
+            PlayniteApi.Dialogs.ActivateGlobalProgress(args =>
+            {
+                args.IsIndeterminate = true;
+                cloudSyncManager.PullAndRestoreLatestAsync(game.Id, game.Name).GetAwaiter().GetResult();
+            }, new GlobalProgressOptions(ResourceProvider.GetString("LOCSaveManagerMsgPullingLatest"), false) { IsIndeterminate = true });
+        }
+
+        private void ShowReinstallConflictDialog(Game game, SaveBackup localBackup, Services.CloudSyncManager.SyncCheckInfo syncInfo)
+        {
+            var localTime = syncInfo.LocalFileModifiedTime ?? localBackup?.CreatedAt ?? DateTime.MinValue;
+            var cloudTime = syncInfo.CloudBackup?.CreatedAt ?? DateTime.MinValue;
+            var localNewest = localTime > cloudTime;
+            var cloudNewest = cloudTime > localTime;
+            var options = new List<MessageBoxOption>
+            {
+                new MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerBtnPullCloud") + (cloudNewest ? ResourceProvider.GetString("LOCSaveManagerMsgRecommended") : ""), false, false),
+                new MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerBtnKeepLocalAndPush") + (localNewest ? ResourceProvider.GetString("LOCSaveManagerMsgRecommended") : ""), false, false),
+                new MessageBoxOption(ResourceProvider.GetString("LOCSaveManagerBtnCancel"), true, true)
+            };
+            var selected = PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCSaveManagerMsgSaveConflictOptions"),
+                    localTime == DateTime.MinValue ? "Unknown" : localTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    localBackup?.FormattedSize ?? "Unknown",
+                    cloudTime == DateTime.MinValue ? "Unknown" : cloudTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    syncInfo.CloudBackup?.FormattedSize ?? "Unknown"),
+                ResourceProvider.GetString("LOCSaveManagerTitleSaveConflict"), MessageBoxImage.Warning, options);
+
+            if (selected == options[0]) RestoreCloudLatestForReinstall(game);
+            else if (selected == options[1] && localBackup != null)
+            {
+                backupService.RestoreBackup(localBackup, backupService.GetGameConfig(game.Id)?.RestoreExcludePaths);
+                backgroundTaskManager.RunTask($"ReinstallPush_{game.Name}", () => cloudSyncManager.PushLatestToCloudAsync(game.Id, game.Name));
+            }
+        }
 
         /// <summary>
         /// 导出全局配置

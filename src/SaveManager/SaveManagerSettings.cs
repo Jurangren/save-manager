@@ -25,19 +25,29 @@ namespace SaveManager
         /// </summary>
         private const string SettingsFileName = "settings.json";
 
-        // 备份设置
+        // 备份设置（仅保存在本机 settings.json，不会上传到云端）
         private string customBackupPath = string.Empty;
+        private Dictionary<Guid, string> gameBackupPaths = new Dictionary<Guid, string>();
         private bool autoBackupOnGameExit = false;
         private bool confirmBeforeBackup = true;
         private int maxBackupCount = 0;
 
         /// <summary>
-        /// 自定义备份目录
+        /// 全局自定义备份根目录。留空时使用插件数据目录下的 Backups。
         /// </summary>
         public string CustomBackupPath
         {
             get => customBackupPath;
             set => SetValue(ref customBackupPath, value);
+        }
+
+        /// <summary>
+        /// 单游戏备份根目录覆盖（ConfigId -> 根目录）。仅保存在本机。
+        /// </summary>
+        public Dictionary<Guid, string> GameBackupPaths
+        {
+            get => gameBackupPaths;
+            set => SetValue(ref gameBackupPaths, value ?? new Dictionary<Guid, string>());
         }
 
         /// <summary>
@@ -147,7 +157,19 @@ namespace SaveManager
             set => SetValue(ref cloudProvider, value);
         }
 
+        private bool syncConfigOnApplicationStart = true;
         private bool syncConfigOnGameStart = false;
+        private bool restoreOnGameReinstall = true;
+        private Dictionary<Guid, bool> gameInstallStates = new Dictionary<Guid, bool>();
+
+        /// <summary>
+        /// Playnite 启动时同步配置
+        /// </summary>
+        public bool SyncConfigOnApplicationStart
+        {
+            get => syncConfigOnApplicationStart;
+            set => SetValue(ref syncConfigOnApplicationStart, value);
+        }
 
         /// <summary>
         /// 每次游戏启动时同步配置
@@ -156,6 +178,24 @@ namespace SaveManager
         {
             get => syncConfigOnGameStart;
             set => SetValue(ref syncConfigOnGameStart, value);
+        }
+
+        /// <summary>
+        /// 检测到游戏从未安装变为已安装时询问恢复备份
+        /// </summary>
+        public bool RestoreOnGameReinstall
+        {
+            get => restoreOnGameReinstall;
+            set => SetValue(ref restoreOnGameReinstall, value);
+        }
+
+        /// <summary>
+        /// 本机 Playnite 游戏安装状态基线（GameId -> IsInstalled），不会上传云端。
+        /// </summary>
+        public Dictionary<Guid, bool> GameInstallStates
+        {
+            get => gameInstallStates;
+            set => SetValue(ref gameInstallStates, value ?? new Dictionary<Guid, bool>());
         }
 
         // 云服务验证状态（不序列化）
@@ -189,6 +229,8 @@ namespace SaveManager
         [DontSerialize]
         private string editingCustomBackupPath;
         [DontSerialize]
+        private Dictionary<Guid, string> editingGameBackupPaths;
+        [DontSerialize]
         private bool editingAutoBackupOnGameExit;
         [DontSerialize]
         private bool editingConfirmBeforeBackup;
@@ -198,10 +240,22 @@ namespace SaveManager
         private bool editingRealtimeSyncEnabled;
         [DontSerialize]
         private bool editingShowSidebarButton;
+        [DontSerialize]
+        private bool editingCloudSyncEnabled;
+        [DontSerialize]
+        private int editingCloudProvider;
+        [DontSerialize]
+        private bool editingSyncConfigOnApplicationStart;
+        [DontSerialize]
+        private bool editingSyncConfigOnGameStart;
+        [DontSerialize]
+        private bool editingRestoreOnGameReinstall;
 
         // 命令
         [DontSerialize]
         public ICommand BrowseBackupPathCommand { get; }
+        [DontSerialize]
+        public ICommand ClearBackupPathCommand { get; }
         [DontSerialize]
         public ICommand GlobalExportCommand { get; }
         [DontSerialize]
@@ -243,6 +297,7 @@ namespace SaveManager
 
             // 初始化命令
             BrowseBackupPathCommand = new Playnite.SDK.RelayCommand(() => BrowseBackupPath());
+            ClearBackupPathCommand = new Playnite.SDK.RelayCommand(() => CustomBackupPath = string.Empty);
             GlobalExportCommand = new Playnite.SDK.RelayCommand(() => GlobalExport());
             GlobalImportCommand = new Playnite.SDK.RelayCommand(() => GlobalImport());
             OpenDataFolderCommand = new Playnite.SDK.RelayCommand(() => OpenDataFolder());
@@ -285,12 +340,16 @@ namespace SaveManager
                     if (savedSettings != null)
                     {
                         CustomBackupPath = savedSettings.CustomBackupPath ?? string.Empty;
+                        GameBackupPaths = savedSettings.GameBackupPaths ?? new Dictionary<Guid, string>();
+                        GameInstallStates = savedSettings.GameInstallStates ?? new Dictionary<Guid, bool>();
                         AutoBackupOnGameExit = savedSettings.AutoBackupOnGameExit;
                         ConfirmBeforeBackup = savedSettings.ConfirmBeforeBackup;
                         MaxAutoBackupCount = savedSettings.MaxAutoBackupCount;
                         ShowAutoBackupNotification = savedSettings.ShowAutoBackupNotification;
                         RealtimeSyncEnabled = savedSettings.RealtimeSyncEnabled;
+                        SyncConfigOnApplicationStart = savedSettings.SyncConfigOnApplicationStart;
                         SyncConfigOnGameStart = savedSettings.SyncConfigOnGameStart;
+                        RestoreOnGameReinstall = savedSettings.RestoreOnGameReinstall;
                         // 云同步设置
                         cloudSyncEnabled = savedSettings.CloudSyncEnabled;
                         cloudProvider = savedSettings.CloudProvider;
@@ -665,9 +724,8 @@ namespace SaveManager
                             if (selectedOption == options[0])
                             {
                                 // 记录当前的配置ID列表
-                                var existingConfigIds = plugin.GetBackupService().GetAllGameConfigs()
-                                    .Select(c => c.ConfigId)
-                                    .ToHashSet();
+                                var existingConfigIds = new HashSet<Guid>(plugin.GetBackupService().GetAllGameConfigs()
+                                    .Select(c => c.ConfigId));
 
                                 // 拉取所有数据
                                 bool success = false;
@@ -710,9 +768,8 @@ namespace SaveManager
                             else if (selectedOption == options[1])
                             {
                                 // 记录当前的配置ID列表
-                                var existingConfigIds = plugin.GetBackupService().GetAllGameConfigs()
-                                    .Select(c => c.ConfigId)
-                                    .ToHashSet();
+                                var existingConfigIds = new HashSet<Guid>(plugin.GetBackupService().GetAllGameConfigs()
+                                    .Select(c => c.ConfigId));
 
                                 // 仅拉取配置文件
                                 bool success = false;
@@ -1304,27 +1361,54 @@ namespace SaveManager
         {
             // 保存当前值用于取消时恢复
             editingCustomBackupPath = CustomBackupPath;
+            editingGameBackupPaths = new Dictionary<Guid, string>(GameBackupPaths);
             editingAutoBackupOnGameExit = AutoBackupOnGameExit;
             editingConfirmBeforeBackup = ConfirmBeforeBackup;
             editingMaxBackupCount = MaxAutoBackupCount;
             editingRealtimeSyncEnabled = RealtimeSyncEnabled;
             editingShowSidebarButton = ShowSidebarButton;
+            editingCloudSyncEnabled = CloudSyncEnabled;
+            editingCloudProvider = CloudProvider;
+            editingSyncConfigOnApplicationStart = SyncConfigOnApplicationStart;
+            editingSyncConfigOnGameStart = SyncConfigOnGameStart;
+            editingRestoreOnGameReinstall = RestoreOnGameReinstall;
         }
 
         public void CancelEdit()
         {
             // 恢复原始值
             CustomBackupPath = editingCustomBackupPath;
+            GameBackupPaths = editingGameBackupPaths ?? new Dictionary<Guid, string>();
             AutoBackupOnGameExit = editingAutoBackupOnGameExit;
             ConfirmBeforeBackup = editingConfirmBeforeBackup;
             MaxAutoBackupCount = editingMaxBackupCount;
             RealtimeSyncEnabled = editingRealtimeSyncEnabled;
             ShowSidebarButton = editingShowSidebarButton;
+            CloudSyncEnabled = editingCloudSyncEnabled;
+            CloudProvider = editingCloudProvider;
+            SyncConfigOnApplicationStart = editingSyncConfigOnApplicationStart;
+            SyncConfigOnGameStart = editingSyncConfigOnGameStart;
+            RestoreOnGameReinstall = editingRestoreOnGameReinstall;
         }
 
         public void EndEdit()
         {
+            // 全局根目录变化时先迁移所有未单独覆盖目录的游戏。
+            if (!string.Equals(editingCustomBackupPath ?? string.Empty, CustomBackupPath ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!plugin.TryChangeGlobalBackupPath(editingCustomBackupPath, CustomBackupPath))
+                {
+                    CustomBackupPath = editingCustomBackupPath;
+                    return;
+                }
+            }
+
             // 保存设置到自定义文件（不使用 Playnite SDK 的 SavePluginSettings）
+            SaveSettings();
+        }
+
+        internal void SaveLocalSettings()
+        {
             SaveSettings();
         }
 

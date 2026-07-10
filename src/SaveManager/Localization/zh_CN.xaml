@@ -44,8 +44,13 @@
 
     <!-- Settings View -->
     <sys:String x:Key="LOCSaveManagerSettingsTitle">Save Manager 设置</sys:String>
+    <sys:String x:Key="LOCSaveManagerBackupStorage">本地备份存储</sys:String>
     <sys:String x:Key="LOCSaveManagerCustomBackupPath">自定义备份目录:</sys:String>
+    <sys:String x:Key="LOCSaveManagerCustomBackupPathTooltip">未单独指定目录的游戏使用此本地根目录。此设置不会上传到云端。</sys:String>
     <sys:String x:Key="LOCSaveManagerBrowse">浏览...</sys:String>
+    <sys:String x:Key="LOCSaveManagerUseGlobalBackupPath">使用全局</sys:String>
+    <sys:String x:Key="LOCSaveManagerUseDefaultBackupPath">使用默认</sys:String>
+    <sys:String x:Key="LOCSaveManagerGameBackupPathTooltip">此游戏可选的本地备份根目录；留空表示继承全局目录。此设置不会上传到云端。</sys:String>
     <sys:String x:Key="LOCSaveManagerAutoBackup">游戏结束时自动备份</sys:String>
     <sys:String x:Key="LOCSaveManagerConfirmBackup">备份前显示确认对话框</sys:String>
     <sys:String x:Key="LOCSaveManagerMaxAutoBackupCount">自动备份最大数量:</sys:String>
@@ -219,6 +224,10 @@
     <sys:String x:Key="LOCSaveManagerRealtimeSyncTooltip">游戏结束后自动创建最新存档的备份快照，并在启用云同步时自动上传到云端</sys:String>
     <sys:String x:Key="LOCSaveManagerRealtimeSyncDescription">自动记录存档版本并同步到云端</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgDisableRealtimeSyncWarning">禁用版本记录后，云同步将无法正常工作，且在此之后创建的存档即使在之后开启云同步，还原时也会频繁造成存档冲突。如果你现在或者未来需要使用云同步，强烈建议不要关闭该功能！</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnApplicationStart">Playnite 启动时同步配置</sys:String>
+    <sys:String x:Key="LOCSaveManagerSyncConfigOnApplicationStartTooltip">关闭后，Playnite 启动时不会等待云端配置同步，可减少启动延迟。</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreOnGameReinstall">检测游戏重新安装并询问恢复存档</sys:String>
+    <sys:String x:Key="LOCSaveManagerRestoreOnGameReinstallTooltip">使用 Playnite 的已安装/未安装状态。已配置游戏重新变为已安装时，比较本地与云端 Latest 版本树并在恢复前询问。</sys:String>
     <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStart">每次游戏启动前同步配置</sys:String>
     <sys:String x:Key="LOCSaveManagerSyncConfigOnGameStartTooltip">在每次游戏启动前，先从云端拉取最新的配置文件，确保配置与其他设备保持同步</sys:String>
 
@@ -238,6 +247,18 @@
     <sys:String x:Key="LOCSaveManagerMsgConfirmPushAllData">确定要将所有本地数据推送到云端吗？&#x0a;&#x0a;这将上传所有游戏的配置和最新备份。如果云端已有对应文件，将被覆盖。</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgConfirmPullAllData">警告：确定要从云端拉取所有数据吗？&#x0a;&#x0a;这将：&#x0a;1. 下载云端所有游戏的配置&#x0a;2. 覆盖本地已有的配置&#x0a;&#x0a;建议先进行"推送到云端"以备份当前状态。</sys:String>
     
+    <sys:String x:Key="LOCSaveManagerTitleReinstallRestore">重新安装游戏存档恢复</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReinstallRestoreLocal">检测到「{0}」已重新安装，并发现本地备份。&#x0a;&#x0a;时间：{1}&#x0a;大小：{2}&#x0a;&#x0a;是否立即恢复？</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgReinstallRestoreCloud">检测到「{0}」已重新安装，并发现云端 Latest 备份。&#x0a;&#x0a;时间：{1}&#x0a;大小：{2}&#x0a;&#x0a;是否立即下载并恢复？</sys:String>
+    <sys:String x:Key="LOCSaveManagerTitleBackupPathConflict">备份迁移文件冲突</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupPathConflict">迁移「{0}」的备份时，目标目录存在内容不同的同名文件。&#x0a;&#x0a;目录树父子关系：{1}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgMigrationSourceDetails">源文件：{0}&#x0a;修改时间：{1}&#x0a;目录树：{2}</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgMigrationTargetDetails">目标文件：{0}&#x0a;修改时间：{1}&#x0a;目录树：{2}</sys:String>
+    <sys:String x:Key="LOCSaveManagerApplyChoiceToAllConflicts">当前游戏后续全部同名冲突都使用本次选择</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnKeepSourceFile">保留源文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerBtnKeepTargetFile">保留目标文件</sys:String>
+    <sys:String x:Key="LOCSaveManagerMsgBackupPathMigrationFailed">迁移「{0}」的备份失败：{1}&#x0a;&#x0a;原目录及设置已保留：&#x0a;{2}</sys:String>
+
     <!-- 错误与状态消息 -->
     <sys:String x:Key="LOCSaveManagerError">错误</sys:String>
     <sys:String x:Key="LOCSaveManagerMsgRcloneNotInstalled">未检测到 Rclone。需要下载 Rclone 才能使用云同步功能。</sys:String>

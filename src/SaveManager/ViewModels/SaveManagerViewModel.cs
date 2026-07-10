@@ -92,6 +92,13 @@ namespace SaveManager.ViewModels
             set { _newBackupDescription = value; OnPropertyChanged(); }
         }
 
+        private string _gameBackupPath;
+        public string GameBackupPath
+        {
+            get => _gameBackupPath;
+            set { _gameBackupPath = value; OnPropertyChanged(); }
+        }
+
         private bool _hasSavePaths;
         public bool HasSavePaths
         {
@@ -131,6 +138,8 @@ namespace SaveManager.ViewModels
         public ICommand ForceRestoreBackupCommand { get; }
         public ICommand ReuploadBackupCommand { get; }
         public ICommand MatchGameCommand { get; }
+        public ICommand BrowseGameBackupPathCommand { get; }
+        public ICommand ClearGameBackupPathCommand { get; }
 
         // 还原排除项命令
         public ICommand AddExcludeFolderCommand { get; }
@@ -142,10 +151,13 @@ namespace SaveManager.ViewModels
         private readonly RcloneService rcloneService;
         private readonly Func<bool> getCloudSyncEnabled;
         private readonly Func<bool> getRealtimeSyncEnabled;
+        private readonly Func<Guid, string> getGameBackupPath;
+        private readonly Func<Guid, string, bool> changeGameBackupPath;
 
-        public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService, 
+        public SaveManagerViewModel(Game game, IPlayniteAPI playniteApi, BackupService backupService,
             CloudSyncManager cloudSyncManager = null, RcloneService rcloneService = null,
-            Func<bool> getCloudSyncEnabled = null, Func<bool> getRealtimeSyncEnabled = null)
+            Func<bool> getCloudSyncEnabled = null, Func<bool> getRealtimeSyncEnabled = null,
+            Func<Guid, string> getGameBackupPath = null, Func<Guid, string, bool> changeGameBackupPath = null)
         {
             this.game = game;
             this.playniteApi = playniteApi;
@@ -154,6 +166,8 @@ namespace SaveManager.ViewModels
             this.rcloneService = rcloneService;
             this.getCloudSyncEnabled = getCloudSyncEnabled;
             this.getRealtimeSyncEnabled = getRealtimeSyncEnabled;
+            this.getGameBackupPath = getGameBackupPath;
+            this.changeGameBackupPath = changeGameBackupPath;
 
             SavePaths = new ObservableCollection<SavePathItem>();
             RestoreExcludePaths = new ObservableCollection<SavePathItem>();
@@ -177,6 +191,8 @@ namespace SaveManager.ViewModels
             ForceRestoreBackupCommand = new RelayCommand(ForceRestoreBackup, () => IsSingleBackupSelected && SelectedBackups.FirstOrDefault()?.Name != "Latest");
             ReuploadBackupCommand = new RelayCommand(ReuploadBackup, () => IsSingleBackupSelected && getCloudSyncEnabled());
             MatchGameCommand = new RelayCommand(OpenGameMatching, () => !IsGameMatched);
+            BrowseGameBackupPathCommand = new RelayCommand(BrowseGameBackupPath, () => IsGameMatched);
+            ClearGameBackupPathCommand = new RelayCommand(ClearGameBackupPath, () => IsGameMatched && !string.IsNullOrEmpty(GameBackupPath));
 
             // 还原排除项命令
             AddExcludeFolderCommand = new RelayCommand(AddExcludeFolder);
@@ -192,6 +208,7 @@ namespace SaveManager.ViewModels
         {
             // 加载存档路径配置
             _currentConfig = backupService.GetGameConfig(game.Id);
+            GameBackupPath = _currentConfig != null ? (getGameBackupPath?.Invoke(_currentConfig.ConfigId) ?? string.Empty) : string.Empty;
             OnPropertyChanged(nameof(ConfigId));
             OnPropertyChanged(nameof(IsGameMatched));
 
@@ -1358,6 +1375,37 @@ namespace SaveManager.ViewModels
                 {
                     playniteApi.Dialogs.ShowErrorMessage(ex.Message, "Error");
                 }
+            }
+        }
+
+        private void BrowseGameBackupPath()
+        {
+            if (_currentConfig == null || changeGameBackupPath == null) return;
+            var selectedPath = playniteApi.Dialogs.SelectFolder();
+            if (string.IsNullOrWhiteSpace(selectedPath)) return;
+
+            if (changeGameBackupPath(_currentConfig.ConfigId, selectedPath))
+            {
+                GameBackupPath = selectedPath;
+                RefreshBackupFullPaths();
+            }
+        }
+
+        private void ClearGameBackupPath()
+        {
+            if (_currentConfig == null || changeGameBackupPath == null) return;
+            if (changeGameBackupPath(_currentConfig.ConfigId, string.Empty))
+            {
+                GameBackupPath = string.Empty;
+                RefreshBackupFullPaths();
+            }
+        }
+
+        private void RefreshBackupFullPaths()
+        {
+            foreach (var backup in Backups)
+            {
+                backup.FullPath = backupService.GetFullBackupPath(backup.BackupFilePath);
             }
         }
 
